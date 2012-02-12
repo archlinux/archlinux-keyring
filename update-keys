@@ -1,0 +1,20 @@
+#!/bin/bash
+
+TMPDIR=$(mktemp -d)
+trap "rm -rf '${TMPDIR}'" EXIT
+
+KEYSERVER='pgp.mit.edu'
+GPG="gpg -q --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
+
+pushd "$(dirname "$0")" >/dev/null
+for list in master packager; do
+	rm -rf $list
+	mkdir $list
+	while read -ra data; do
+		keyid="${data[0]}"
+		username="${data[@]:1}"
+		${GPG} --recv-keys ${keyid}
+		${GPG} --armor --output ${list}/${username}.asc --export ${keyid}
+	done < ${list}-keyids
+done
+popd >/dev/null
