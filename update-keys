@@ -1,20 +1,52 @@
 #!/bin/bash
 
+export LANG=C
+
 TMPDIR=$(mktemp -d)
 trap "rm -rf '${TMPDIR}'" EXIT
 
 KEYSERVER='pgp.mit.edu'
-GPG="gpg -q --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
+GPG="gpg --quiet --batch --no-tty --no-permission-warning --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
 
 pushd "$(dirname "$0")" >/dev/null
-for list in master packager; do
-	rm -rf $list
-	mkdir $list
-	while read -ra data; do
-		keyid="${data[0]}"
-		username="${data[@]:1}"
-		${GPG} --recv-keys ${keyid}
-		${GPG} --armor --output ${list}/${username}.asc --export ${keyid}
-	done < ${list}-keyids
-done
+
+$GPG --gen-key <<EOF
+%echo Generating Arch Linux Keyring keychain master key...
+Key-Type: RSA
+Key-Length: 2048
+Key-Usage: sign
+Name-Real: Arch Linux Keyring Keychain Master Key
+Name-Email: archlinux-keyring@localhost
+Expire-Date: 0
+%commit
+%echo Done
+EOF
+
+rm -rf master packager
+mkdir master packager
+
+while read -ra data; do
+	keyid="${data[0]}"
+	username="${data[@]:1}"
+	${GPG} --recv-keys ${keyid} &>/dev/null
+	printf 'y\ny\n' | \
+		${GPG} --command-fd 0 --lsign-key ${keyid} &>/dev/null
+	printf 'trust\n3\nquit\n' | \
+		${GPG} --command-fd 0 --edit-key ${keyid} &>/dev/null
+	${GPG} --armor --output master/${username}.asc --export ${keyid}
+done < master-keyids
+
+while read -ra data; do
+	keyid="${data[0]}"
+	username="${data[@]:1}"
+	${GPG} --recv-keys ${keyid} &>/dev/null
+	FD=$(mktemp)
+	exec 4>"${FD}"
+	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
+		echo "key is not fully trusted: ${keyid} ${username}"
+	else
+		${GPG} --armor --output packager/${username}.asc --export ${keyid}
+	fi
+done < packager-keyids
+
 popd >/dev/null
