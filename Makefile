@@ -1,16 +1,12 @@
-V=20120213
+V=20120220
 
 PREFIX = /usr/local
 
 install:
-	install -dm0755 $(DESTDIR)$(PREFIX)/share/archlinux-keyring/master
-	install -dm0755 $(DESTDIR)$(PREFIX)/share/archlinux-keyring/packager
-	for k in master/*.asc; do install -m0644 $$k $(DESTDIR)$(PREFIX)/share/archlinux-keyring/master/; done
-	for k in packager/*.asc; do install -m0644 $$k $(DESTDIR)$(PREFIX)/share/archlinux-keyring/packager/; done
+	for k in master/*.asc master/ownertrust.txt packager/*.asc; do install -Dm0644 $$k $(DESTDIR)$(PREFIX)/share/archlinux-keyring/$$k; done
 
 uninstall:
-	for k in master/*.asc; do rm -f $(DESTDIR)$(PREFIX)/share/archlinux-keyring/master/$$k; done
-	for k in packager/*.asc; do rm -f $(DESTDIR)$(PREFIX)/share/archlinux-keyring/packager/$$k; done
+	for k in master/*.asc master/ownertrust.txt in packager/*.as; do rm -f $(DESTDIR)$(PREFIX)/share/archlinux-keyring/$$k; done
 	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/archlinux-keyring/master
 	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/archlinux-keyring/packager
 

@@ -5,7 +5,7 @@ export LANG=C
 TMPDIR=$(mktemp -d)
 trap "rm -rf '${TMPDIR}'" EXIT
 
-KEYSERVER='pgp.mit.edu'
+KEYSERVER='wwwkeys.de.pgp.net'
 GPG="gpg --quiet --batch --no-tty --no-permission-warning --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
 
 pushd "$(dirname "$0")" >/dev/null
@@ -31,10 +31,10 @@ while read -ra data; do
 	${GPG} --recv-keys ${keyid} &>/dev/null
 	printf 'y\ny\n' | \
 		${GPG} --command-fd 0 --lsign-key ${keyid} &>/dev/null
-	printf 'trust\n3\nquit\n' | \
-		${GPG} --command-fd 0 --edit-key ${keyid} &>/dev/null
 	${GPG} --armor --output master/${username}.asc --export ${keyid}
+	echo "${keyid}:4:" >> master/ownertrust.txt
 done < master-keyids
+${GPG} --import-ownertrust < master/ownertrust.txt
 
 while read -ra data; do
 	keyid="${data[0]}"
