@@ -3,3 +3,5 @@ update-keys	export-ignore
 .gitignore	export-ignore
 master-keyids	export-ignore
 packager-keyids	export-ignore
+master/		export-ignore
+packager/	export-ignore

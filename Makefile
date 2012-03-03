@@ -1,14 +1,14 @@
-V=20120220
+V=20120303
 
 PREFIX = /usr/local
 
 install:
-	for k in master/*.asc master/ownertrust.txt packager/*.asc; do install -Dm0644 $$k $(DESTDIR)$(PREFIX)/share/archlinux-keyring/$$k; done
+	install -dm755 $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	install -m0644 archlinux{.gpg,-trusted,-revoked} $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
 
 uninstall:
-	for k in master/*.asc master/ownertrust.txt in packager/*.as; do rm -f $(DESTDIR)$(PREFIX)/share/archlinux-keyring/$$k; done
-	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/archlinux-keyring/master
-	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/archlinux-keyring/packager
+	rm -f $(DESTDIR)$(PREFIX)/share/pacman/keyrings/archlinux{.gpg,-trusted,-revoked}
+	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
 
 dist:
 	git archive --format=tar --prefix=archlinux-keyring-$(V)/ $(V) | gzip -9 > archlinux-keyring-$(V).tar.gz

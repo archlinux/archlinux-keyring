@@ -22,7 +22,7 @@ Expire-Date: 0
 %echo Done
 EOF
 
-rm -rf master packager
+rm -rf master packager archlinux-trusted
 mkdir master packager
 
 while read -ra data; do
@@ -32,14 +32,16 @@ while read -ra data; do
 	printf 'y\ny\n' | \
 		${GPG} --command-fd 0 --lsign-key ${keyid} &>/dev/null
 	${GPG} --armor --output master/${username}.asc --export ${keyid}
-	echo "${keyid}:4:" >> master/ownertrust.txt
+	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
-${GPG} --import-ownertrust < master/ownertrust.txt
+${GPG} --import-ownertrust < archlinux-trusted
 
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
 	${GPG} --recv-keys ${keyid} &>/dev/null
+	printf 'clean\nquit\ny\n' | \
+		${GPG} --command-fd 0 --edit-key ${keyid}
 	FD=$(mktemp)
 	exec 4>"${FD}"
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
@@ -48,5 +50,12 @@ while read -ra data; do
 		${GPG} --armor --output packager/${username}.asc --export ${keyid}
 	fi
 done < packager-keyids
+
+cat master/*.asc packager/*.asc > archlinux.gpg
+
+for s in archlinux{.gpg,-trusted,-revoked}; do
+	rm -f ${s}.sig
+	gpg --detach-sign --use-agent ${s}
+done
 
 popd >/dev/null
