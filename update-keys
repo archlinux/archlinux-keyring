@@ -55,11 +55,4 @@ done < packager-keyids
 
 cat master/*.asc packager/*.asc > archlinux.gpg
 
-for s in archlinux{.gpg,-trusted,-revoked}; do
-	if ! ${GPG} --verify ${s}.sig; then
-		rm -f ${s}.sig
-		gpg --detach-sign --use-agent ${s}
-	fi
-done
-
 popd >/dev/null
