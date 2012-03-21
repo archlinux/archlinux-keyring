@@ -5,7 +5,7 @@ export LANG=C
 TMPDIR=$(mktemp -d)
 trap "rm -rf '${TMPDIR}'" EXIT
 
-KEYSERVER='hkp://pgp.mit.edu'
+KEYSERVER='hkp://keys.gnupg.net'
 GPG="gpg --quiet --batch --no-tty --no-permission-warning --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
 
 pushd "$(dirname "$0")" >/dev/null
@@ -54,5 +54,12 @@ while read -ra data; do
 done < packager-keyids
 
 cat master/*.asc packager/*.asc > archlinux.gpg
+
+for s in archlinux{.gpg,-trusted,-revoked}; do
+	if ! ${GPG} --verify ${s}.sig; then
+		rm -f ${s}.sig
+		gpg --detach-sign --use-agent ${s}
+	fi
+done
 
 popd >/dev/null
