@@ -13,7 +13,7 @@ pushd "$(dirname "$0")" >/dev/null
 $GPG --gen-key <<EOF
 %echo Generating Arch Linux Keyring keychain master key...
 Key-Type: RSA
-Key-Length: 2048
+Key-Length: 1024
 Key-Usage: sign
 Name-Real: Arch Linux Keyring Keychain Master Key
 Name-Email: archlinux-keyring@localhost
@@ -31,12 +31,11 @@ while read -ra data; do
 	${GPG} --recv-keys ${keyid} &>/dev/null
 	printf 'minimize\nquit\ny\n' | \
 		${GPG} --command-fd 0 --edit-key ${keyid}
-	printf 'y\ny\n' | \
-		${GPG} --command-fd 0 --lsign-key ${keyid} &>/dev/null
+	${GPG} --yes --lsign-key ${keyid} &>/dev/null
 	${GPG} --armor --output master/${username}.asc --export ${keyid}
 	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
-${GPG} --import-ownertrust < archlinux-trusted
+${GPG} --import-ownertrust < archlinux-trusted 2>/dev/null
 
 while read -ra data; do
 	keyid="${data[0]}"
