@@ -1,4 +1,4 @@
-V=20120811
+V=20120812
 
 PREFIX = /usr/local
 
