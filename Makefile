@@ -1,4 +1,4 @@
-V=20130114
+V=20130127
 
 PREFIX = /usr/local
 
@@ -15,6 +15,6 @@ dist:
 	gpg --detach-sign --use-agent archlinux-keyring-$(V).tar.gz
 
 upload:
-	scp archlinux-keyring-$(V).tar.gz archlinux-keyring-$(V).tar.gz.sig gerolde.archlinux.org:/srv/ftp/other/archlinux-keyring/
+	scp archlinux-keyring-$(V).tar.gz archlinux-keyring-$(V).tar.gz.sig nymeria.archlinux.org:/srv/ftp/other/archlinux-keyring/
 
 .PHONY: install uninstall dist upload
