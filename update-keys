@@ -39,12 +39,13 @@ ${GPG} --import-ownertrust < archlinux-trusted 2>/dev/null
 
 while read -ra data; do
 	keyid="${data[0]}"
-	username="${data[@]:1}"
 	${GPG} --recv-keys ${keyid} &>/dev/null
+done < packager-keyids
+while read -ra data; do
+	keyid="${data[0]}"
+	username="${data[@]:1}"
 	printf 'clean\nquit\ny\n' | \
 		${GPG} --command-fd 0 --edit-key ${keyid}
-	FD=$(mktemp)
-	exec 4>"${FD}"
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
 		echo "key is not fully trusted: ${keyid} ${username}"
 	else
@@ -58,8 +59,6 @@ while read -ra data; do
 	${GPG} --recv-keys ${keyid} &>/dev/null
 	printf 'clean\nquit\ny\n' | \
 		${GPG} --command-fd 0 --edit-key ${keyid}
-	FD=$(mktemp)
-	exec 4>"${FD}"
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
 		${GPG} --armor --no-emit-version --output packager-revoked/${username}.asc --export ${keyid}
 		echo "${keyid}" >> archlinux-revoked
