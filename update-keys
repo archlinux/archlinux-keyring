@@ -23,8 +23,8 @@ Expire-Date: 0
 %echo Done
 EOF
 
-rm -rf master packager packager-revoked archlinux-trusted archlinux-revoked
-mkdir master packager packager-revoked
+rm -rf master{,-revoked} packager{,-revoked} archlinux-{trusted,revoked}
+mkdir master packager master-revoked packager-revoked
 
 while read -ra data; do
 	keyid="${data[0]}"
@@ -37,6 +37,20 @@ while read -ra data; do
 	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
 ${GPG} --import-ownertrust < archlinux-trusted 2>/dev/null
+
+while read -ra data; do
+	keyid="${data[0]}"
+	username="${data[1]}"
+	${GPG} --recv-keys ${keyid} &>/dev/null
+	printf 'clean\nquit\ny\n' | \
+		${GPG} --command-fd 0 --edit-key ${keyid}
+	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
+		${GPG} --armor --no-emit-version --export ${keyid} >> master-revoked/${username}.asc
+		echo "${keyid}" >> archlinux-revoked
+	else
+		echo "key is still fully trusted: ${keyid} ${username}"
+	fi
+done < master-revoked-keyids
 
 while read -ra data; do
 	keyid="${data[0]}"
@@ -68,6 +82,6 @@ while read -ra data; do
 	fi
 done < packager-revoked-keyids
 
-cat master/*.asc packager/*.asc packager-revoked/*.asc > archlinux.gpg
+cat master/*.asc master-revoked/*.asc packager/*.asc packager-revoked/*.asc > archlinux.gpg
 
 popd >/dev/null
