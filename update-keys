@@ -6,7 +6,7 @@ TMPDIR=$(mktemp -d)
 trap "rm -rf '${TMPDIR}'" EXIT
 
 KEYSERVER='hkp://pool.sks-keyservers.net'
-GPG="gpg --quiet --batch --no-tty --no-permission-warning --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
+GPG="gpg --quiet --batch --no-tty --no-permission-warning --export-options no-export-attributes --keyserver "${KEYSERVER}" --homedir ${TMPDIR}"
 
 pushd "$(dirname "$0")" >/dev/null
 
