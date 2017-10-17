@@ -45,7 +45,7 @@ while read -ra data; do
 	printf 'clean\nquit\ny\n' | \
 		${GPG} --command-fd 0 --edit-key ${keyid}
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
-		${GPG} --armor --no-emit-version --export ${keyid} >> master-revoked/${username}.asc
+		${GPG} --armor --no-emit-version --export-options export-minimal --export ${keyid} >> master-revoked/${username}.asc
 		echo "${keyid}" >> archlinux-revoked
 	else
 		echo "key is still fully trusted: ${keyid} ${username}"
@@ -75,7 +75,7 @@ while read -ra data; do
 	printf 'clean\nquit\ny\n' | \
 		${GPG} --command-fd 0 --edit-key ${keyid}
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
-		${GPG} --armor --no-emit-version --export ${keyid} >> packager-revoked/${username}.asc
+		${GPG} --armor --no-emit-version --export-options export-minimal --export ${keyid} >> packager-revoked/${username}.asc
 		echo "${keyid}" >> archlinux-revoked
 	else
 		echo "key is still fully trusted: ${keyid} ${username}"
