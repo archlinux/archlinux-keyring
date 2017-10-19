@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 export LANG=C
 
 TMPDIR=$(mktemp -d)
