@@ -4,7 +4,9 @@ PREFIX = /usr/local
 
 install:
 	install -dm755 $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-	install -m0644 archlinux{.gpg,-trusted,-revoked} $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	install -m0644 archlinux.gpg $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	install -m0644 archlinux-trusted $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	install -m0644 archlinux-revoked $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/share/pacman/keyrings/archlinux{.gpg,-trusted,-revoked}
