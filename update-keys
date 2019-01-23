@@ -25,6 +25,8 @@ Expire-Date: 0
 %echo Done
 EOF
 
+${GPG} --import < archlinux.gpg
+
 rm -rf master{,-revoked} packager{,-revoked} archlinux-{trusted,revoked}
 mkdir master packager master-revoked packager-revoked
 
