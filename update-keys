@@ -13,11 +13,11 @@ GPG="gpg --quiet --batch --no-tty --no-permission-warning --export-options no-ex
 pushd "$(dirname "$0")" >/dev/null
 
 $GPG --gen-key <<EOF
-%echo Generating Arch Linux Keyring keychain master key...
+%echo Generating Arch Linux keyring temporary master key...
 Key-Type: RSA
-Key-Length: 1024
+Key-Length: 2048
 Key-Usage: sign
-Name-Real: Arch Linux Keyring Keychain Master Key
+Name-Real: Arch Linux keyring temporary master key
 Name-Email: archlinux-keyring@localhost
 Expire-Date: 0
 %no-protection
