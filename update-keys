@@ -30,37 +30,42 @@ ${GPG} --import < archlinux.gpg
 rm -rf master{,-revoked} packager{,-revoked} archlinux-{trusted,revoked}
 mkdir master packager master-revoked packager-revoked
 
+# refresh/receive all keys
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
-	${GPG} --recv-keys ${keyid} &>/dev/null
-	printf 'minimize\nquit\ny\n' | \
-		${GPG} --command-fd 0 --edit-key ${keyid}
+	if ${GPG} --list-keys ${keyid} >/dev/null &>/dev/null; then
+		${GPG} --refresh-keys ${keyid} &>/dev/null
+	else
+		${GPG} --recv-keys ${keyid} &>/dev/null
+	fi
+done < <(cat master-keyids master-revoked-keyids packager-keyids packager-revoked-keyids)
+
+# master-keyids
+while read -ra data; do
+	keyid="${data[0]}"
+	username="${data[@]:1}"
+	printf 'minimize\nquit\ny\n' | ${GPG} --command-fd 0 --edit-key ${keyid}
 	${GPG} --yes --lsign-key ${keyid} &>/dev/null
 	${GPG} --armor --no-emit-version --export ${keyid} >> master/${username}.asc
 	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
 ${GPG} --import-ownertrust < archlinux-trusted 2>/dev/null
 
+# master-revoked-keyids
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[1]}"
-	${GPG} --recv-keys ${keyid} &>/dev/null
-	printf 'clean\nquit\ny\n' | \
-		${GPG} --command-fd 0 --edit-key ${keyid}
+	printf 'clean\nquit\ny\n' | ${GPG} --command-fd 0 --edit-key ${keyid}
 	${GPG} --armor --no-emit-version --export-options export-minimal --export ${keyid} >> master-revoked/${username}.asc
 	echo "${keyid}" >> archlinux-revoked
 done < master-revoked-keyids
 
-while read -ra data; do
-	keyid="${data[0]}"
-	${GPG} --recv-keys ${keyid} &>/dev/null
-done < packager-keyids
+# packager-keyids
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
-	printf 'clean\nquit\ny\n' | \
-		${GPG} --command-fd 0 --edit-key ${keyid}
+	printf 'clean\nquit\ny\n' | ${GPG} --command-fd 0 --edit-key ${keyid}
 	if ! ${GPG} --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
 		echo "key is not fully trusted: ${keyid} ${username}"
 	else
@@ -68,12 +73,11 @@ while read -ra data; do
 	fi
 done < packager-keyids
 
+# packager-revoked-keyids
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[1]}"
-	${GPG} --recv-keys ${keyid} &>/dev/null
-	printf 'clean\nquit\ny\n' | \
-		${GPG} --command-fd 0 --edit-key ${keyid}
+	printf 'clean\nquit\ny\n' | ${GPG} --command-fd 0 --edit-key ${keyid}
 	${GPG} --armor --no-emit-version --export-options export-minimal --export ${keyid} >> packager-revoked/${username}.asc
 	echo "${keyid}" >> archlinux-revoked
 done < packager-revoked-keyids
