@@ -21,7 +21,7 @@ armor
 no-emit-version
 __EOF__
 
-pushd "$(dirname "$0")" >/dev/null
+cd "$(dirname "$0")"
 
 "${GPG[@]}" --gen-key <<EOF
 %echo Generating Arch Linux keyring temporary master key...
@@ -91,5 +91,3 @@ while read -ra data; do
 done < packager-revoked-keyids
 
 cat master/*.asc master-revoked/*.asc packager/*.asc packager-revoked/*.asc > archlinux.gpg
-
-popd >/dev/null
