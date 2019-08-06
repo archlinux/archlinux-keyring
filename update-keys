@@ -56,9 +56,8 @@ done < <(cat master-keyids master-revoked-keyids packager-keyids packager-revoke
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
-	printf 'minimize\nquit\ny\n' | "${GPG[@]}" --command-fd 0 --edit-key ${keyid}
 	"${GPG[@]}" --yes --lsign-key ${keyid} &>/dev/null
-	"${GPG[@]}" --export ${keyid} >> master/${username}.asc
+	"${GPG[@]}" --export-options export-minimal --export ${keyid} >> master/${username}.asc
 	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
 "${GPG[@]}" --import-ownertrust < archlinux-trusted 2>/dev/null
