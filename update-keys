@@ -57,7 +57,7 @@ while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
 	"${GPG[@]}" --yes --lsign-key ${keyid} &>/dev/null
-	"${GPG[@]}" --export-options export-minimal --export ${keyid} >> master/${username}.asc
+	"${GPG[@]}" --export ${keyid} >> master/${username}.asc
 	echo "${keyid}:4:" >> archlinux-trusted
 done < master-keyids
 "${GPG[@]}" --import-ownertrust < archlinux-trusted 2>/dev/null
@@ -66,7 +66,7 @@ done < master-keyids
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[1]}"
-	"${GPG[@]}" --export-options export-minimal --export ${keyid} >> master-revoked/${username}.asc
+	"${GPG[@]}" --export ${keyid} >> master-revoked/${username}.asc
 	echo "${keyid}" >> archlinux-revoked
 done < master-revoked-keyids
 
@@ -85,7 +85,7 @@ done < packager-keyids
 while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[1]}"
-	"${GPG[@]}" --export-options export-minimal --export ${keyid} >> packager-revoked/${username}.asc
+	"${GPG[@]}" --export ${keyid} >> packager-revoked/${username}.asc
 	echo "${keyid}" >> archlinux-revoked
 done < packager-revoked-keyids
 
