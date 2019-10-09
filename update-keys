@@ -75,7 +75,8 @@ while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
 	if ! "${GPG[@]}" --list-keys --with-colons ${keyid} 2>/dev/null | grep -q '^pub:f:'; then
-		echo "key is not fully trusted: ${keyid} ${username}"
+		echo "WARNING: key is not fully trusted: ${keyid} ${username}"
+		"${GPG[@]}" --comment "marginal trust: ${username} (${keyid})" --export ${keyid} >> packager/${username}.asc
 	else
 		"${GPG[@]}" --comment "packager: ${username} (${keyid})" --export ${keyid} >> packager/${username}.asc
 	fi
