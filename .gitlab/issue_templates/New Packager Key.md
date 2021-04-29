@@ -33,10 +33,25 @@ needs to do the signature.
 
 ## Checks
 
+### New key owner
+
 - [ ] The [workflow for adding a new packager
   key](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/workflows/add-a-new-packager-key)
   has been followed
+- [ ] The key pair contains one user ID with a valid `<username>@archlinux.org` email address
+  used for signing
+- [ ] The key pair has been validated according to the [best
+  practices](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/best-practices#validating-a-key-pair)
 - [ ] The data in the [Details](#details) section is attached to this issue as
   a clearsigned document
 - [ ] The public key has been uploaded to the SKS infrastructure
 - [ ] The public key has been signed by at least three valid main keys
+
+### Keyring maintainer
+
+- [ ] The key pair contains one user ID with a valid `<username>@archlinux.org` email address
+  used for signing
+- [ ] The key pair has been validated according to the [best
+  practices](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/best-practices#validating-a-key-pair)
+- [ ] The data in the [Details](#details) section is correct and signed with a
+  valid and trusted packager key, which is part of `pacman-key`
