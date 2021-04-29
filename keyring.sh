@@ -18,6 +18,22 @@ print_key_info() {
 	gpg --homedir "$homedir" --keyid-format long --list-key "$key_id" 2>/dev/null
 }
 
+print_lint_info() {
+	local key_id="$1"
+	hkt export-pubkeys "$key_id" --keyring "${homedir}/pubring.gpg" |hokey lint
+}
+
+print_sequoia_lint_info() {
+	local key_id="$1"
+	set +e
+	sq-keyring-linter -q <(gpg --homedir "$homedir" --export "$key_id" 2>/dev/null)
+	if [[ $? -ne 0 ]]; then
+		sq-keyring-linter <(gpg --homedir "$homedir" --export "$key_id" 2>/dev/null)
+		print_lint_info "$key_id"
+	fi
+	set -e
+}
+
 get_valid_raw_key_colons() {
 # assign list of public keys in colon representation
 # see /usr/share/doc/gnupg/DETAILS for details on the format
@@ -111,6 +127,18 @@ list_unsafe_keys() {
 	fi
 }
 
+list_keyring_lint() {
+	local keys=""
+	keys="$(awk -F':' '{print $5}' <<< "$1")"
+	while read -r key_id; do
+		print_lint_info "$key_id"
+	done <<< "$keys"
+	while read -r key_id; do
+		print_sequoia_lint_info "$key_id"
+	done <<< "$keys"
+}
+
 get_valid_raw_key_colons
 list_expiring_keys "$raw_key_colons"
 list_unsafe_keys "$raw_key_colons"
+list_keyring_lint "$raw_key_colons"
