@@ -1,0 +1,26 @@
+image: archlinux:latest
+
+stages:
+  - lint
+
+variables:
+  PACMAN_CACHE: "${CI_PROJECT_DIR}/.pacman/pkg"
+
+cache:
+  paths:
+    - .pacman/pkg
+  key: ${CI_JOB_NAME}
+
+check-new-key:
+  stage: lint
+  needs: []
+  script:
+    - install -d "${PACMAN_CACHE}"
+    - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" git grep hopenpgp-tools sequoia-keyring-linter
+    - ./.gitlab/check-keyids-change
+  only:
+    refs:
+      - merge_requests
+    changes:
+      - master-keyids
+      - packager-keyids
