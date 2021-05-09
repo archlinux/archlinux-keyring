@@ -22,3 +22,13 @@ issue and assign relevant users.
 
 - [ ] There are no packages left in any of the official repositories, that are
   signed by the key, that is about to be removed.
+
+### Main key holders
+
+- [ ] All main key holders have revoked their signature for the key and
+  published the result on the SKS infrastructure
+  - [ ] @allan
+  - [ ] @anthraxx
+  - [ ] @bluewind
+  - [ ] @dvzrv
+  - [ ] @pierre
