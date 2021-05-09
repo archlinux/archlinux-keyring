@@ -45,13 +45,23 @@ needs to do the signature.
 - [ ] The data in the [Details](#details) section is attached to this issue as
   a clearsigned document
 - [ ] The public key has been uploaded to the SKS infrastructure
-- [ ] The public key has been signed by at least three valid main keys
+
+### Main key holders
+
+- [ ] The public key has been validated according to the [best
+  practices](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/best-practices#validating-a-key-pair)
+- [ ] The public key has been signed by all main key holders
+  - [ ] @allan
+  - [ ] @anthraxx
+  - [ ] @bluewind
+  - [ ] @dvzrv
+  - [ ] @pierre
 
 ### Keyring maintainer
 
-- [ ] The key pair contains one user ID with a valid `<username>@archlinux.org` email address
-  used for signing
-- [ ] The key pair has been validated according to the [best
+- [ ] The public key contains one user ID with a valid
+  `<username>@archlinux.org` email address used for signing
+- [ ] The public key has been validated according to the [best
   practices](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/best-practices#validating-a-key-pair)
 - [ ] The data in the [Details](#details) section is correct and signed with a
   valid and trusted packager key, which is part of `pacman-key`
