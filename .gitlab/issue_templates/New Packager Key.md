@@ -6,6 +6,7 @@ when adding a new key for themself.
 -->
 /assign @allan @anthraxx @bluewind @dvzrv @pierre
 /label ~"new packager key"
+/title New packager key of <!-- MODIFY: Add new packager key holder's username -->
 <!--
 Please do not remove the above quick actions, which automatically label the
 issue and assign relevant users.
@@ -15,11 +16,11 @@ issue and assign relevant users.
 
 ## Details
 
-- Username: <!-- Add the @-prefixed username -->
-- PGP key ID: <!-- Add the "long format" key ID of the new PGP public key here -->
-- Sponsors: <!-- Add the @-prefixed usernames of the sponsors -->
-- Application: <!-- Add link to application, if this is the key of a new packager, else remove -->
-- Results: <!-- Add link to results of application, if this is the key of a new packager, else remove -->
+- Username: <!-- MODIFY: Add the @-prefixed username -->
+- PGP key ID: <!-- MODIFY: Add the "long format" key ID of the new PGP public key here -->
+- Sponsors: <!-- MODIFY: Add the @-prefixed usernames of the sponsors -->
+- Application: <!-- MODIFY: Add link to application, if this is the key of a new packager, else remove -->
+- Results: <!-- MODIFY: Add link to results of application, if this is the key of a new packager, else remove -->
 
 <!--
 NOTE: Attach the above information as a clearsigned document to this ticket.

@@ -5,6 +5,7 @@ It is used by users with a valid packager key.
 -->
 /assign @allan @anthraxx @bluewind @dvzrv @pierre
 /label ~"new main key"
+/title New main key of <!-- MODIFY: Add new main key holder's username -->
 <!--
 Please do not remove the above quick actions, which automatically label the
 issue and assign relevant users.
@@ -14,9 +15,9 @@ issue and assign relevant users.
 
 ## Details
 
-- Username: <!-- Add the @-prefixed username -->
-- PGP key ID: <!-- Add the "long format" key ID of the new PGP public key here -->
-- Revocation Certificate Holder: <!-- Add the @-prefixed username of the revocation certificate holder -->
+- Username: <!-- MODIFY: Add the @-prefixed username -->
+- PGP key ID: <!-- MODIFY: Add the "long format" key ID of the new PGP public key here -->
+- Revocation Certificate Holder: <!-- MODIFY: Add the @-prefixed username of the revocation certificate holder -->
 
 <!--
 NOTE: Attach the above information as a clearsigned document to this ticket

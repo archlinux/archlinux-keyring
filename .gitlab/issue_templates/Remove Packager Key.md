@@ -5,6 +5,7 @@ It is used by users with a valid main key or a valid packager key.
 -->
 /assign @allan @anthraxx @bluewind @dvzrv @pierre
 /label ~"remove packager key"
+/title Remove packager key of <!-- MODIFY: Add packager key holder's username -->
 <!--
 Please do not remove the above quick actions, which automatically label the
 issue and assign relevant users.
@@ -14,9 +15,9 @@ issue and assign relevant users.
 
 ## Details
 
-- Username: <!-- Add the @-prefixed username -->
-- PGP key ID: <!-- Add the "long format" key ID of the PGP public key here -->
-- Resignation: <!-- Link to resignation of key holder -->
+- Username: <!-- MODIFY: Add the @-prefixed username -->
+- PGP key ID: <!-- MODIFY: Add the "long format" key ID of the PGP public key here -->
+- Resignation: <!-- MODIFY: Link to resignation of key holder -->
 
 ## Checks
 
