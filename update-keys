@@ -9,7 +9,7 @@ export LANG=C
 TMPDIR=$(mktemp -d)
 trap "rm -rf '${TMPDIR}'" EXIT
 
-KEYSERVER='hkp://pool.sks-keyservers.net'
+KEYSERVER='hkps://keyserver.ubuntu.com'
 GPG=(gpg --homedir "${TMPDIR}")
 
 cat << __EOF__ > "${TMPDIR}"/gpg.conf
@@ -49,7 +49,9 @@ while read -ra data; do
 	keyid="${data[0]}"
 	username="${data[@]:1}"
 	if "${GPG[@]}" --list-keys ${keyid} >/dev/null &>/dev/null; then
-		"${GPG[@]}" --refresh-keys ${keyid} &>/dev/null
+		# Ignore refresh failure; Ubuntu keyserver lacks support for EC keys
+		# TODO: Remove the "|| true" when the above is no longer an issue
+		"${GPG[@]}" --refresh-keys ${keyid} &>/dev/null || true
 	else
 		"${GPG[@]}" --recv-keys ${keyid} &>/dev/null
 	fi
