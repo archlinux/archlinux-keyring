@@ -20,7 +20,7 @@ issue and assign relevant users as reviewers.
 - Username: <!-- MODIFY: Add the @-prefixed username -->
 - PGP key ID: <!-- MODIFY: Add the "long format" key ID of the PGP public key here -->
 
-Closes <!-- MODIFY: Add #-prefixed issue number, that will be closed by merging this merge request -->
+Related issue: <!-- MODIFY: Add #-prefixed issue number -->
 
 ## Checks
 
@@ -28,4 +28,3 @@ Closes <!-- MODIFY: Add #-prefixed issue number, that will be closed by merging 
 
 - [ ] There are no packages left in any of the official repositories, that are
   signed by the key which is about to be removed.
-- [ ] All main key holders have revoked their signatures for the key.

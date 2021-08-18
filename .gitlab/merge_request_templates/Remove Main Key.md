@@ -19,7 +19,7 @@ issue and assign relevant users.
 - Username: <!-- MODIFY: Add the @-prefixed username -->
 - PGP key ID: <!-- MODIFY: Add the "long format" key ID of the PGP public key here -->
 
-Closes <!-- MODIFY: Add #-prefixed issue number, that will be closed by merging this merge request -->
+Related issue: <!-- MODIFY: Add #-prefixed issue number -->
 
 ## Checks
 
@@ -29,4 +29,3 @@ Closes <!-- MODIFY: Add #-prefixed issue number, that will be closed by merging 
   removal of this key.
 - [ ] All packagers have at least three valid main key signatures for their
   packager key after removal of this key.
-- [ ] The key has been revoked.
