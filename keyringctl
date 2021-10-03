@@ -76,7 +76,7 @@ def system(cmd: List[str], exit_on_error: bool = True) -> str:
         raise e
 
 
-def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Path:
+def convert_certificate(working_dir: Path, certificate: Path, name_override: Optional[str] = None) -> Path:
     certificate_fingerprint: Optional[str] = None
     pubkey: Optional[Path] = None
     direct_sigs: Dict[str, Dict[str, List[Path]]] = {}
@@ -89,6 +89,7 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
     subkey_binding_sig: Dict[str, Path] = {}
     certifications: Dict[str, List[Path]] = defaultdict(list)
     revocations: Dict[str, List[Path]] = defaultdict(list)
+    username = name_override or certificate.name.split(".")[0]
 
     def add_packet_to_direct_sigs(
         direct_sigs: Dict[str, Dict[str, List[Path]]],
@@ -218,13 +219,14 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
     if not pubkey:
         raise Exception('missing certificate public-key')
 
-    root_dir = (working_dir / certificate_fingerprint)
-    root_dir.mkdir()
+    user_dir = (working_dir / username)
+    key_dir = (user_dir / certificate_fingerprint)
+    key_dir.mkdir(parents=True)
 
     persist_basic_key(
         certificate_fingerprint=certificate_fingerprint,
         pubkey=pubkey,
-        root_dir=root_dir,
+        key_dir=key_dir,
         subkey=subkey,
         subkey_binding_sig=subkey_binding_sig,
         uid_binding_sig=uid_binding_sig,
@@ -234,20 +236,20 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
     persist_direct_sigs(
         direct_sigs=direct_sigs,
         pubkey=pubkey,
-        root_dir=root_dir,
+        key_dir=key_dir,
     )
 
     persist_direct_sigs(
         direct_sigs=direct_revocations,
         pubkey=pubkey,
-        root_dir=root_dir,
-        sig_type="revocations",
+        key_dir=key_dir,
+        sig_type="revocation",
     )
 
     persist_certifications(
         certifications=certifications,
         pubkey=pubkey,
-        root_dir=root_dir,
+        key_dir=key_dir,
         uid_binding_sig=uid_binding_sig,
         uids=uids,
     )
@@ -255,18 +257,18 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
     persist_revocations(
         pubkey=pubkey,
         revocations=revocations,
-        root_dir=root_dir,
+        key_dir=key_dir,
         uid_binding_sig=uid_binding_sig,
         uids=uids,
     )
 
-    return root_dir
+    return user_dir
 
 
 def persist_basic_key(
     certificate_fingerprint: str,
     pubkey: Path,
-    root_dir: Path,
+    key_dir: Path,
     subkey: Dict[str, Path],
     subkey_binding_sig: Dict[str, Path],
     uid_binding_sig: Dict[str, Path],
@@ -276,7 +278,7 @@ def persist_basic_key(
 
     The basic key material consists of the root key's public key, any PublicSubkeys and their SubkeyBindings, all User
     IDs and the per User ID PositiveCertifications.
-    The file is written to root_dir and is named after the root key's certificate fingerprint.
+    The file is written to key_dir and is named after the root key's certificate fingerprint.
 
     Parameters
     ----------
@@ -284,7 +286,7 @@ def persist_basic_key(
         The unique fingerprint of the public key
     pubkey: Path
         The path to the public key of the root key
-    root_dir: Path
+    key_dir: Path
         The root directory below which the basic key material is persisted
     subkey: Dict[str, Path]
         The PublicSubkeys of a key
@@ -302,13 +304,13 @@ def persist_basic_key(
     for key in subkey_binding_sig.keys():
         packets.extend([subkey[key], subkey_binding_sig[key]])
 
-    packet_join(packets, root_dir / f'{certificate_fingerprint}.asc')
+    packet_join(packets, key_dir / f'{certificate_fingerprint}.asc')
 
 
 def persist_direct_sigs(
     direct_sigs: Dict[str, Dict[str, List[Path]]],
     pubkey: Path,
-    root_dir: Path,
+    key_dir: Path,
     sig_type: str = "certification",
 ) -> None:
     """Persist the signatures directly on a root key (such as DirectKeys or *Certifications without a User ID) to
@@ -320,7 +322,7 @@ def persist_direct_sigs(
         The certifications to write to file
     pubkey: Path
         The path to the public key of the root key
-    root_dir: Path
+    key_dir: Path
         The root directory below which the Directkeys are persisted
     sig_type: str
         The type of direct certification to persist (defaults to 'certification'). This influences the directory name
@@ -328,7 +330,7 @@ def persist_direct_sigs(
 
     for key, current_certifications in direct_sigs.items():
         for issuer, certifications in current_certifications.items():
-            direct_key_dir = root_dir / sig_type
+            direct_key_dir = key_dir / sig_type
             direct_key_dir.mkdir(parents=True, exist_ok=True)
             packets = [pubkey] + certifications
             output_file = direct_key_dir / f'{issuer}.asc'
@@ -339,7 +341,7 @@ def persist_direct_sigs(
 def persist_certifications(
     certifications: Dict[str, List[Path]],
     pubkey: Path,
-    root_dir: Path,
+    key_dir: Path,
     uid_binding_sig: Dict[str, Path],
     uids: Dict[str, Path],
 ) -> None:
@@ -347,7 +349,7 @@ def persist_certifications(
 
     The certifications include all CasualCertifications, GenericCertifications, PersonaCertifications and
     PositiveCertifications for all User IDs of the given root key.
-    All certifications are persisted in per User ID certification directories below root_dir.
+    All certifications are persisted in per User ID certification directories below key_dir.
 
     Parameters
     ----------
@@ -355,7 +357,7 @@ def persist_certifications(
         The certifications to write to file
     pubkey: Path
         The path to the public key of the root key
-    root_dir: Path
+    key_dir: Path
         The root directory below which certifications are persisted
     uid_binding_sig: Dict[str, Path]
         The PositiveCertifications of a User ID and Public-Key packet
@@ -365,7 +367,7 @@ def persist_certifications(
 
     for key, current_certifications in certifications.items():
         for certification in current_certifications:
-            certification_dir = root_dir / key / 'certification'
+            certification_dir = key_dir / key / 'certification'
             certification_dir.mkdir(parents=True, exist_ok=True)
             issuer = packet_dump_field(certification, 'Issuer')
 
@@ -378,14 +380,14 @@ def persist_certifications(
 def persist_revocations(
     pubkey: Path,
     revocations: Dict[str, List[Path]],
-    root_dir: Path,
+    key_dir: Path,
     uid_binding_sig: Dict[str, Path],
     uids: Dict[str, Path],
 ) -> None:
     """Persist the revocations of a root key to file(s)
 
     The revocations include all CertificationRevocations for all User IDs of the given root key.
-    All revocations are persisted in per User ID 'revocation' directories below root_dir.
+    All revocations are persisted in per User ID 'revocation' directories below key_dir.
 
     Parameters
     ----------
@@ -393,7 +395,7 @@ def persist_revocations(
         The path to the public key of the root key
     revocations: Dict[str, List[Path]]
         The revocations to write to file
-    root_dir: Path
+    key_dir: Path
         The root directory below which revocations will be persisted
     uid_binding_sig: Dict[str, Path]
         The PositiveCertifications of a User ID and Public-Key packet
@@ -403,7 +405,7 @@ def persist_revocations(
 
     for key, current_revocations in revocations.items():
         for revocation in current_revocations:
-            revocation_dir = root_dir / key / 'revocation'
+            revocation_dir = key_dir / key / 'revocation'
             revocation_dir.mkdir(parents=True, exist_ok=True)
 
             issuer = packet_dump_field(revocation, 'Issuer')
@@ -452,13 +454,22 @@ def simplify_user_id(user_id: str) -> str:
     return user_id
 
 
-def convert(working_dir: Path, source: Path, target_dir: Optional[Path] = None) -> Path:
+def convert(
+    working_dir: Path,
+    source: Path,
+    target_dir: Optional[Path] = None,
+    name_override: Optional[str] = None,
+) -> Path:
     directories: List[Path] = []
     if source.is_dir():
         for key in source.iterdir():
-            directories.append(convert_certificate(working_dir, key, 'anthraxx'))
+            directories.append(
+                convert_certificate(working_dir=working_dir, certificate=key, name_override=name_override)
+            )
     else:
-        directories.append(convert_certificate(working_dir, source, 'anthraxx'))
+        directories.append(
+            convert_certificate(working_dir=working_dir, certificate=source, name_override=name_override)
+        )
 
     if target_dir:
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -468,7 +479,11 @@ def convert(working_dir: Path, source: Path, target_dir: Optional[Path] = None) 
 
     for path in directories:
         target_dir.mkdir(exist_ok=True)
-        move(path, target_dir)
+        if (target_dir / path.name).exists():
+            for key_dir in path.iterdir():
+                move(key_dir, target_dir / path.name)
+        else:
+            move(path, target_dir)
 
     return target_dir
 
@@ -494,6 +509,12 @@ if __name__ == '__main__':
     )
     convert_parser.add_argument('source', type=absolute_path, help='File or directory to convert')
     convert_parser.add_argument('--target', type=absolute_path, help='target directory')
+    convert_parser.add_argument(
+        '--name',
+        type=str,
+        default=None,
+        help='override the username to use (only useful when targetting a single file)',
+    )
 
     import_parser = subcommands.add_parser('import')
     import_parser.add_argument('source', type=absolute_path, help='File or directory')
