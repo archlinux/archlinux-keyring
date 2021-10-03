@@ -80,6 +80,7 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
     certificate_fingerprint: Optional[str] = None
     pubkey: Optional[Path] = None
     direct_sigs: Dict[str, Dict[str, List[Path]]] = {}
+    direct_revocations: Dict[str, Dict[str, List[Path]]] = {}
     current_packet_mode: Optional[str] = None
     current_packet_key: Optional[str] = None
     uids: Dict[str, Path] = {}
@@ -117,10 +118,11 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
         direct_sigs[packet_key][issuer].append(packet)
         return direct_sigs
 
-    # XXX: KeyRevocation
     # XXX: PrimaryKeyBinding
 
     # TODO: remove 3rd party direct key signatures, seems to be leaked by export-clean
+
+    debug(f'Processing certificate {certificate}')
 
     for packet in packet_split(working_dir, certificate):
         debug(f'Processing packet {packet.name}')
@@ -169,6 +171,13 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
                     elif signature_type == 'CertificationRevocation':
                         # XXX:
                         revocations[current_packet_key].append(packet)
+                    elif signature_type == 'KeyRevocation':
+                        direct_revocations = add_packet_to_direct_sigs(
+                            direct_sigs=direct_revocations,
+                            issuer=issuer,
+                            packet_key=current_packet_key,
+                            packet=packet,
+                        )
                     else:
                         raise Exception(f'unknown signature type: {signature_type}')
                 else:
@@ -226,6 +235,13 @@ def convert_certificate(working_dir: Path, certificate: Path, owner: str) -> Pat
         direct_sigs=direct_sigs,
         pubkey=pubkey,
         root_dir=root_dir,
+    )
+
+    persist_direct_sigs(
+        direct_sigs=direct_revocations,
+        pubkey=pubkey,
+        root_dir=root_dir,
+        sig_type="revocations",
     )
 
     persist_certifications(
@@ -293,6 +309,7 @@ def persist_direct_sigs(
     direct_sigs: Dict[str, Dict[str, List[Path]]],
     pubkey: Path,
     root_dir: Path,
+    sig_type: str = "certification",
 ) -> None:
     """Persist the signatures directly on a root key (such as DirectKeys or *Certifications without a User ID) to
     file(s)
@@ -305,11 +322,13 @@ def persist_direct_sigs(
         The path to the public key of the root key
     root_dir: Path
         The root directory below which the Directkeys are persisted
+    sig_type: str
+        The type of direct certification to persist (defaults to 'certification'). This influences the directory name
     """
 
     for key, current_certifications in direct_sigs.items():
         for issuer, certifications in current_certifications.items():
-            direct_key_dir = root_dir / 'certification'
+            direct_key_dir = root_dir / sig_type
             direct_key_dir.mkdir(parents=True, exist_ok=True)
             packets = [pubkey] + certifications
             output_file = direct_key_dir / f'{issuer}.asc'
