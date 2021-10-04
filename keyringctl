@@ -8,7 +8,7 @@ from os import getcwd
 
 from pathlib import Path
 
-from shutil import move
+from shutil import copytree
 
 from re import escape
 from re import split
@@ -457,7 +457,7 @@ def simplify_user_id(user_id: str) -> str:
 def convert(
     working_dir: Path,
     source: Path,
-    target_dir: Optional[Path] = None,
+    target_dir: Path,
     name_override: Optional[str] = None,
 ) -> Path:
     directories: List[Path] = []
@@ -471,19 +471,9 @@ def convert(
             convert_certificate(working_dir=working_dir, certificate=source, name_override=name_override)
         )
 
-    if target_dir:
-        target_dir.mkdir(parents=True, exist_ok=True)
-    else:
-        # persistent target directory
-        target_dir = Path(mkdtemp()).absolute()
-
     for path in directories:
-        target_dir.mkdir(exist_ok=True)
-        if (target_dir / path.name).exists():
-            for key_dir in path.iterdir():
-                move(key_dir, target_dir / path.name)
-        else:
-            move(path, target_dir)
+        (target_dir / path.name).mkdir(exist_ok=True)
+        copytree(src=path, dst=(target_dir / path.name), dirs_exist_ok=True)
 
     return target_dir
 
@@ -525,6 +515,13 @@ if __name__ == '__main__':
     if args.verbose:
         basicConfig(level=DEBUG)
 
+    if args.target:
+        args.target.mkdir(parents=True, exist_ok=True)
+        target_dir = args.target
+    else:
+        # persistent target directory
+        target_dir = Path(mkdtemp()).absolute()
+
     # temporary working directory that gets auto cleaned
     with TemporaryDirectory() as tempdir:
         working_dir = Path(tempdir)
@@ -533,9 +530,9 @@ if __name__ == '__main__':
         debug(f'Working directory: {working_dir}')
 
         if 'convert' == args.subcommand:
-            print(convert(working_dir, args.source, args.target))
+            print(convert(working_dir, args.source, target_dir))
         elif 'import' == args.subcommand:
-            keyring_import(working_dir, args.source, args.target)
+            keyring_import(working_dir, args.source, target_dir)
 
         if args.wait:
             print('Press [ENTER] to continue')
