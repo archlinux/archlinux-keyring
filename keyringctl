@@ -84,7 +84,7 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
     current_packet_mode: Optional[str] = None
     current_packet_key: Optional[str] = None
     uids: Dict[str, Path] = {}
-    uid_binding_sig: Dict[str, Path] = {}
+    uid_binding_sigs: Dict[str, Path] = {}
     subkeys: Dict[str, Dict[str, Path]] = {}
     subkey_binding_sigs: Dict[str, Dict[str, Path]] = {}
     subkey_revocations: Dict[str, Dict[str, Path]] = {}
@@ -134,8 +134,7 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
             current_packet_mode = 'pubkey'
             current_packet_key = certificate_fingerprint
         elif packet.name.endswith('--UserID'):
-            value = packet_dump_field(packet, 'Value')
-            value = simplify_user_id(value)
+            value = simplify_user_id(packet_dump_field(packet, 'Value'))
             current_packet_mode = 'uid'
             current_packet_key = value
             uids[value] = packet
@@ -161,53 +160,32 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
             issuer = packet_dump_field(packet, 'Issuer')
             signature_type = packet_dump_field(packet, 'Type')
 
-            if signature_type == 'DirectKey':
-                direct_sigs = add_packet_to_direct_sigs(
-                    direct_sigs=direct_sigs,
-                    issuer=issuer,
-                    packet_key=current_packet_key,
-                    packet=packet,
-                )
-                continue
-
-            if not current_packet_key:
-                # TODO GenericCertification PersonaCertification CasualCertification PositiveCertification
-                raise Exception(f'unknown packet key for "{packet.name}"')
-
-            if current_packet_mode == 'uid' or current_packet_mode == 'pubkey':
-                if certificate_fingerprint.endswith(issuer):
-                    if signature_type == 'PositiveCertification':
-                        uid_binding_sig[current_packet_key] = packet
-                    elif signature_type == 'CertificationRevocation':
-                        revocations[current_packet_key].append(packet)
-                    elif signature_type == 'KeyRevocation':
-                        direct_revocations = add_packet_to_direct_sigs(
-                            direct_sigs=direct_revocations,
-                            issuer=issuer,
-                            packet_key=current_packet_key,
-                            packet=packet,
-                        )
-                    else:
-                        raise Exception(f'unknown signature type: {signature_type}')
+            if current_packet_mode == 'pubkey':
+                if signature_type == 'KeyRevocation' and certificate_fingerprint.endswith(issuer):
+                    direct_revocations = add_packet_to_direct_sigs(
+                        direct_sigs=direct_revocations,
+                        issuer=issuer,
+                        packet_key=current_packet_key,
+                        packet=packet,
+                    )
+                elif signature_type in ['DirectKey', 'GenericCertification']:
+                    direct_sigs = add_packet_to_direct_sigs(
+                        direct_sigs=direct_sigs,
+                        issuer=issuer,
+                        packet_key=current_packet_key,
+                        packet=packet,
+                    )
                 else:
-                    if signature_type.endswith('Certification'):
-                        # NOTE: here we are only considering signatures directly on the root key
-                        # signatures on a User ID, that are not tied to it via a SubkeyBinding are not addressed
-                        if current_packet_key not in uids:
-                            direct_sigs = add_packet_to_direct_sigs(
-                                direct_sigs=direct_sigs,
-                                issuer=issuer,
-                                packet_key=current_packet_key,
-                                packet=packet,
-                            )
-                        # NOTE: here we address all signatures on User IDs (those that are tied to it with a
-                        # SubkeyBinding and those that are not)
-                        else:
-                            certifications[current_packet_key].append(packet)
-                    elif signature_type == 'CertificationRevocation':
-                        revocations[current_packet_key].append(packet)
-                    else:
-                        raise Exception(f'unknown signature type: {signature_type}')
+                    raise Exception(f'unknown signature type: {signature_type}')
+            elif current_packet_mode == 'uid':
+                if signature_type == 'CertificationRevocation':
+                    revocations[current_packet_key].append(packet)
+                elif signature_type == 'PositiveCertification' and certificate_fingerprint.endswith(issuer):
+                    uid_binding_sigs[current_packet_key] = packet
+                elif signature_type.endswith('Certification'):
+                    certifications[current_packet_key].append(packet)
+                else:
+                    raise Exception(f'unknown signature type: {signature_type}')
             elif current_packet_mode == 'subkey':
                 if signature_type == 'SubkeyBinding':
                     if not subkey_binding_sigs.get(certificate_fingerprint):
@@ -236,11 +214,15 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
     key_dir = (user_dir / certificate_fingerprint)
     key_dir.mkdir(parents=True, exist_ok=True)
 
-    persist_basic_key(
+    persist_public_key(
         certificate_fingerprint=certificate_fingerprint,
         pubkey=pubkey,
         key_dir=key_dir,
-        uid_binding_sig=uid_binding_sig,
+    )
+
+    persist_uids(
+        key_dir=key_dir,
+        uid_binding_sigs=uid_binding_sigs,
         uids=uids,
     )
 
@@ -274,7 +256,7 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
         certifications=certifications,
         pubkey=pubkey,
         key_dir=key_dir,
-        uid_binding_sig=uid_binding_sig,
+        uid_binding_sig=uid_binding_sigs,
         uids=uids,
     )
 
@@ -282,25 +264,19 @@ def convert_certificate(working_dir: Path, certificate: Path, name_override: Opt
         pubkey=pubkey,
         revocations=revocations,
         key_dir=key_dir,
-        uid_binding_sig=uid_binding_sig,
+        uid_binding_sig=uid_binding_sigs,
         uids=uids,
     )
 
     return user_dir
 
 
-def persist_basic_key(
+def persist_public_key(
     certificate_fingerprint: str,
     pubkey: Path,
     key_dir: Path,
-    uid_binding_sig: Dict[str, Path],
-    uids: Dict[str, Path],
 ) -> None:
-    """Persist the basic key material of a root key to file
-
-    The basic key material consists of the root key's public key, any PublicSubkeys and their SubkeyBindings, all User
-    IDs and the per User ID PositiveCertifications.
-    The file is written to key_dir and is named after the root key's certificate fingerprint.
+    """Persist the Public-Key packet
 
     Parameters
     ----------
@@ -310,19 +286,40 @@ def persist_basic_key(
         The path to the public key of the root key
     key_dir: Path
         The root directory below which the basic key material is persisted
-    uid_binding_sig: Dict[str, Path]
+    """
+
+    packets: List[Path] = [pubkey]
+    output_file = key_dir / f'{certificate_fingerprint}.asc'
+    debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
+    packet_join(packets, output_file)
+
+
+def persist_uids(
+    key_dir: Path,
+    uid_binding_sigs: Dict[str, Path],
+    uids: Dict[str, Path],
+) -> None:
+    """Persist the User IDs that belong to a PublicKey
+
+    The User ID material consists of PublicSubkeys and their SubkeyBindings.
+    The files are written to a UID specific directory and file below key_dir/uids.
+
+    Parameters
+    ----------
+    key_dir: Path
+        The root directory below which the basic key material is persisted
+    uid_binding_sigs: Dict[str, Path]
         The PositiveCertifications of a User ID and Public-Key packet
     uids: Dict[str, Path]
         The User IDs of a Public-Key (the root key)
     """
 
-    packets: List[Path] = [pubkey]
-    for key in uid_binding_sig.keys():
-        packets.extend([uids[key], uid_binding_sig[key]])
-
-    output_file = key_dir / f'{certificate_fingerprint}.asc'
-    debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
-    packet_join(packets, output_file)
+    for key in uid_binding_sigs.keys():
+        packets = [uids[key], uid_binding_sigs[key]]
+        output_file = key_dir / f'uids/{key}/{key}.asc'
+        (key_dir / Path(f'uids/{key}')).mkdir(parents=True, exist_ok=True)
+        debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
+        packet_join(packets, output_file)
 
 
 def persist_subkeys(
@@ -441,7 +438,7 @@ def persist_certifications(
 
     for key, current_certifications in certifications.items():
         for certification in current_certifications:
-            certification_dir = key_dir / key / 'certification'
+            certification_dir = key_dir / Path("uids") / key / 'certification'
             certification_dir.mkdir(parents=True, exist_ok=True)
             issuer = packet_dump_field(certification, 'Issuer')
 
@@ -479,7 +476,7 @@ def persist_revocations(
 
     for key, current_revocations in revocations.items():
         for revocation in current_revocations:
-            revocation_dir = key_dir / key / 'revocation'
+            revocation_dir = key_dir / Path("uids") / key / 'revocation'
             revocation_dir.mkdir(parents=True, exist_ok=True)
 
             issuer = packet_dump_field(revocation, 'Issuer')
