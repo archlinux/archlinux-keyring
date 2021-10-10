@@ -33,6 +33,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Iterable
+from typing import Tuple
 
 from contextlib import contextmanager
 
@@ -626,29 +627,20 @@ def keyring_import(working_dir: Path, source: Path, target_dir: Optional[Path] =
     pass
 
 
-def export_keyring(working_dir: Path, sources: List[Path], output: Path, force: bool) -> None:
-    """Export all provided PGP packet files to a single output file
-
-    If sources contains directories, any .asc files below them are considered.
+def temp_join_keys(sources: List[Path], temp_dir: Path, force: bool) -> List[Path]:
+    """Temporarily join the key material of a given set of keys in a temporary location and return their paths
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
     sources: List[Path]
-        A list of directories or files from which to read PGP packet information
-    output: Path
-        An output file that all PGP packet data is written to
+        A list of paths below which PGP packets are found
+    temp_dir: Path
+        The temporary directory below which to join PGP keys
     force: bool
-        Whether to force the execution of packet_join()
+        Whether to force the joining of files
     """
 
-    sources = [source.absolute() for source in sources]
-    cert_dir = Path(mkdtemp(dir=working_dir)).absolute()
-    output = output.absolute()
     certs: List[Path] = []
-
-    debug(f"Creating keyring {output} from {[str(source_dir) for source_dir in sources]}.")
 
     for source_number, source in enumerate(sources):
         if source.is_dir():
@@ -657,7 +649,7 @@ def export_keyring(working_dir: Path, sources: List[Path], output: Path, force: 
                     for user_cert_number, user_cert_dir in enumerate(sorted(user_dir.iterdir())):
                         if user_cert_dir.is_dir():
                             cert_path = (
-                                cert_dir
+                                temp_dir
                                 / (
                                     f"{str(source_number).zfill(4)}"
                                     f"-{str(user_number).zfill(4)}"
@@ -674,11 +666,177 @@ def export_keyring(working_dir: Path, sources: List[Path], output: Path, force: 
         elif source.is_file() and not source.is_symlink():
             certs.append(source)
 
+    return certs
+
+
+def get_all_and_revoked_certs(certs: List[Path]) -> Tuple[List[str], List[str]]:
+    """Get the fingerprints of all public keys and all fingerprints of all (self) revoked public keys in a directory
+
+    Parameters
+    ----------
+    certs: List[Path]
+        The certificates to trust
+
+    Returns
+    -------
+    Tuple[List[str], List[str]]
+        A tuple with the first item containing the fingerprints of all public keys and the second item containing the
+        fingerprints of all self-revoked public keys
+    """
+
+    all_fingerprints: List[str] = []
+    revoked_fingerprints: List[str] = []
+
+    debug(f"Retrieving all and self-revoked certificates from {[str(cert_dir) for cert_dir in certs]}")
+    for cert_collection in certs:
+        if cert_collection.is_dir():
+            for user_dir in cert_collection.iterdir():
+                if user_dir.is_dir():
+                    for cert_dir in user_dir.iterdir():
+                        all_fingerprints.append(cert_dir.stem)
+                        for revocation_cert in cert_dir.glob("revocation/*.asc"):
+                            if cert_dir.stem.endswith(revocation_cert.stem):
+                                debug(f"Revoking {cert_dir.stem} due to self-revocation")
+                                revoked_fingerprints.append(cert_dir.stem)
+
+    return (all_fingerprints, revoked_fingerprints)
+
+
+def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[str], List[str]]:
+    """Export ownertrust from a set of keys
+
+    The output file format is compatible with `gpg --import-ownertrust` and lists the main fingerprint ID of all
+    non-revoked keys as fully trusted.
+    The exported file is used by pacman-key when importing a keyring (see
+    https://man.archlinux.org/man/pacman-key.8#PROVIDING_A_KEYRING_FOR_IMPORT).
+
+    Parameters
+    ----------
+    certs: List[Path]
+        The certificates to trust
+    output: Path
+        The file path to write to
+    """
+
+    (all_certs, revoked_certs) = get_all_and_revoked_certs(certs=certs)
+    trusted_certs = [cert for cert in all_certs if cert not in revoked_certs]
+
+    with open(file=output, mode="w") as trusted_certs_file:
+        for cert in trusted_certs:
+            debug(f"Writing {cert} to {output}")
+            trusted_certs_file.write(f"{cert}:4:\n")
+
+    return (trusted_certs, all_certs)
+
+
+def export_revoked(certs: List[Path], main_keys: List[str], output: Path, min_revoker: int = 2) -> None:
+    """Export the PGP revoked status from a set of keys
+
+    The output file contains the fingerprints of all self-revoked keys and all keys for which at least two revocations
+    by any main key exist.
+    The exported file is used by pacman-key when importing a keyring (see
+    https://man.archlinux.org/man/pacman-key.8#PROVIDING_A_KEYRING_FOR_IMPORT).
+
+    Parameters
+    ----------
+    certs: List[Path]
+        A list of directories with keys to check for their revocation status
+    main_keys: List[str]
+        A list of strings representing the fingerprints of (current and/or revoked) main keys
+    output: Path
+        The file path to write to
+    min_revoker: int
+        The minimum amount of revocation certificates on a User ID from any main key to deem a public key as revoked
+        (defaults to 2)
+    """
+
+    (all_certs, revoked_certs) = get_all_and_revoked_certs(certs=certs)
+
+    debug(f"Retrieving certificates revoked by main keys from {[str(cert_dir) for cert_dir in certs]}")
+    foreign_revocations: Dict[str, List[str]] = {}
+    for cert_collection in certs:
+        if cert_collection.is_dir():
+            for user_dir in cert_collection.iterdir():
+                if user_dir.is_dir():
+                    for cert_dir in user_dir.iterdir():
+                        debug(f"Inspecting public key {cert_dir.name}")
+                        foreign_revocations[cert_dir.stem] = []
+                        for revocation_cert in cert_dir.glob("uids/*/revocation/*.asc"):
+                            foreign_revocations[cert_dir.stem] += [
+                                revocation_cert.stem for main_key in main_keys
+                                if main_key.endswith(revocation_cert.stem)
+                            ]
+
+                        # TODO: find a better (less naive) approach, as this would also match on public certificates,
+                        # where some UIDs are signed and others are revoked
+                        if len(set(foreign_revocations[cert_dir.stem])) >= min_revoker:
+                            debug(
+                                f"Revoking {cert_dir.name} due to {set(foreign_revocations[cert_dir.stem])} "
+                                "being main key revocations"
+                            )
+                            revoked_certs.append(cert_dir.stem)
+
+    with open(file=output, mode="w") as trusted_certs_file:
+        for cert in set(revoked_certs):
+            debug(f"Writing {cert} to {output}")
+            trusted_certs_file.write(f"{cert}\n")
+
+
+def export_keyring(
+    working_dir: Path,
+    main: List[Path],
+    sources: List[Path],
+    output: Path,
+    force: bool,
+    pacman_integration: bool,
+) -> None:
+    """Export all provided PGP packet files to a single output file
+
+    If sources contains directories, any .asc files below them are considered.
+
+    Parameters
+    ----------
+    working_dir: Path
+        A directory to use for temporary files
+    main: List[Path]
+        A list of directories or files from which to read PGP packet information, that is considered as public keys
+        that are used to sign those found in sources
+    sources: List[Path]
+        A list of directories or files from which to read PGP packet information
+    output: Path
+        An output file that all PGP packet data is written to
+    force: bool
+        Whether to force the execution of packet_join()
+    """
+
+    main = [source.absolute() for source in main]
+    sources = [source.absolute() for source in sources]
+    output = output.absolute()
+
+    main_certs = temp_join_keys(sources=main, temp_dir=Path(mkdtemp(dir=working_dir)).absolute(), force=force)
+    sources_certs = temp_join_keys(sources=sources, temp_dir=Path(mkdtemp(dir=working_dir)).absolute(), force=force)
+    debug(
+        f"Creating keyring {output} from {[str(source_dir) for source_dir in main]} "
+        f"and {[str(source_dir) for source_dir in sources]}."
+    )
+
     cmd = ['sq', 'keyring', 'merge', '-o', str(output)]
     if force:
         cmd.insert(1, '--force')
-    cmd += [str(cert) for cert in sorted(certs)]
+    cmd += [str(cert) for cert in sorted(main_certs)]
+    cmd += [str(cert) for cert in sorted(sources_certs)]
     system(cmd, exit_on_error=False)
+
+    if pacman_integration:
+        [trusted_main_keys, all_main_keys] = export_ownertrust(
+            certs=main,
+            output=Path(f"{str(output).split('.gpg')[0]}-trusted"),
+        )
+        export_revoked(
+            certs=main + sources,
+            main_keys=all_main_keys,
+            output=Path(f"{str(output).split('.gpg')[0]}-revoked"),
+        )
 
 
 def absolute_path(path: str) -> Path:
@@ -722,12 +880,27 @@ if __name__ == '__main__':
     )
     export_parser.add_argument('output', type=absolute_path, help='file to write PGP packet data to')
     export_parser.add_argument(
+        '-m',
+        '--main',
+        action="append",
+        help='files or directories containing PGP packet data that is trusted (can be provided multiple times)',
+        required=True,
+        type=absolute_path,
+    )
+    export_parser.add_argument(
         '-s',
         '--source',
         action="append",
         help='files or directories containing PGP packet data (can be provided multiple times)',
         required=True,
         type=absolute_path,
+    )
+    export_parser.add_argument(
+        '-p',
+        '--pacman-integration',
+        action='store_true',
+        default=False,
+        help='export trusted and revoked files (used by pacman) alongside the keyring',
     )
 
     args = parser.parse_args()
@@ -754,7 +927,14 @@ if __name__ == '__main__':
         elif 'import' == args.subcommand:
             keyring_import(working_dir, args.source, target_dir)
         elif 'export' == args.subcommand:
-            export_keyring(working_dir=working_dir, sources=args.source, output=args.output, force=args.force)
+            export_keyring(
+                working_dir=working_dir,
+                main=args.main,
+                sources=args.source,
+                output=args.output,
+                force=args.force,
+                pacman_integration=args.pacman_integration,
+            )
 
         if args.wait:
             print('Press [ENTER] to continue')
