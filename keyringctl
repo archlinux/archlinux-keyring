@@ -385,6 +385,7 @@ def persist_public_key(
 
     packets: List[Path] = [pubkey]
     output_file = key_dir / f'{certificate_fingerprint}.asc'
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
     packet_join(packets, output_file)
 
@@ -411,8 +412,8 @@ def persist_uids(
 
     for key in uid_binding_sigs.keys():
         packets = [uids[key], uid_binding_sigs[key]]
-        output_file = key_dir / f'uid/{key}/{key}.asc'
-        (key_dir / Path(f'uid/{key}')).mkdir(parents=True, exist_ok=True)
+        output_file = key_dir / 'uid' / key / f'{key}.asc'
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
         packet_join(packets, output_file)
 
@@ -441,9 +442,9 @@ def persist_subkeys(
         for signature, subkey in subkeys[certificate_fingerprint].items():
             packets: List[Path] = []
             packets.extend([subkey, subkey_binding_sigs[certificate_fingerprint][signature]])
-            output_file = key_dir / Path(f'subkey/{signature}/{signature}.asc')
+            output_file = key_dir / 'subkey' / signature / f'{signature}.asc'
+            output_file.parent.mkdir(parents=True, exist_ok=True)
             debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
-            (key_dir / Path(f"subkey/{signature}")).mkdir(parents=True, exist_ok=True)
             packet_join(packets=packets, output=output_file)
 
 
@@ -467,9 +468,9 @@ def persist_subkey_revocations(
     if subkey_revocations.get(certificate_fingerprint):
         for signature, revocation in subkey_revocations[certificate_fingerprint].items():
             issuer = packet_dump_field(revocation, 'Issuer')
-            output_file = (key_dir / Path(f'subkey/{signature}/revocation/{issuer}.asc'))
+            output_file = key_dir / 'subkey' / signature / 'revocation' / f'{issuer}.asc'
+            output_file.parent.mkdir(parents=True, exist_ok=True)
             debug(f'Writing file {output_file} from {revocation}')
-            (key_dir / Path(f"subkey/{signature}/revocation")).mkdir(parents=True, exist_ok=True)
             packet_join(packets=[revocation], output=output_file)
 
 
@@ -496,10 +497,9 @@ def persist_direct_sigs(
 
     for key, current_certifications in direct_sigs.items():
         for issuer, certifications in current_certifications.items():
-            direct_key_dir = key_dir / sig_type
-            direct_key_dir.mkdir(parents=True, exist_ok=True)
             packets = [pubkey] + certifications
-            output_file = direct_key_dir / f'{issuer}.asc'
+            output_file = key_dir / sig_type / f'{issuer}.asc'
+            output_file.parent.mkdir(parents=True, exist_ok=True)
             debug(f'Writing file {output_file} from {[str(cert) for cert in certifications]}')
             packet_join(packets, output_file)
 
@@ -783,7 +783,7 @@ def keyring_import(working_dir: Path, source: Path, keyring_root: Path) -> None:
     keyring_root: Path
         The root directory path of the local keyring
     """
-    target_dir = keyring_root / Path('packager')
+    target_dir = keyring_root / 'packager'
     target_dir.mkdir(parents=True, exist_ok=True)
     convert(working_dir, source, target_dir)
 
