@@ -740,7 +740,7 @@ def convert(
     working_dir: Path
         A directory to use for temporary files
     source: Path
-        A path to a file or directory
+        A path to a file or directory to decompose
     target_dir: Path
         A directory path to write the new directory structure to
     name_override: Optional[str]
