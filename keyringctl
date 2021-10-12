@@ -397,7 +397,7 @@ def persist_uids(
     """Persist the User IDs that belong to a PublicKey
 
     The User ID material consists of PublicSubkeys and their SubkeyBindings.
-    The files are written to a UID specific directory and file below key_dir/uids.
+    The files are written to a UID specific directory and file below key_dir/uid.
 
     Parameters
     ----------
@@ -411,8 +411,8 @@ def persist_uids(
 
     for key in uid_binding_sigs.keys():
         packets = [uids[key], uid_binding_sigs[key]]
-        output_file = key_dir / f'uids/{key}/{key}.asc'
-        (key_dir / Path(f'uids/{key}')).mkdir(parents=True, exist_ok=True)
+        output_file = key_dir / f'uid/{key}/{key}.asc'
+        (key_dir / Path(f'uid/{key}')).mkdir(parents=True, exist_ok=True)
         debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
         packet_join(packets, output_file)
 
@@ -441,9 +441,9 @@ def persist_subkeys(
         for signature, subkey in subkeys[certificate_fingerprint].items():
             packets: List[Path] = []
             packets.extend([subkey, subkey_binding_sigs[certificate_fingerprint][signature]])
-            output_file = key_dir / Path(f'subkeys/{signature}/{signature}.asc')
+            output_file = key_dir / Path(f'subkey/{signature}/{signature}.asc')
             debug(f'Writing file {output_file} from {[str(packet) for packet in packets]}')
-            (key_dir / Path(f"subkeys/{signature}")).mkdir(parents=True, exist_ok=True)
+            (key_dir / Path(f"subkey/{signature}")).mkdir(parents=True, exist_ok=True)
             packet_join(packets=packets, output=output_file)
 
 
@@ -467,9 +467,9 @@ def persist_subkey_revocations(
     if subkey_revocations.get(certificate_fingerprint):
         for signature, revocation in subkey_revocations[certificate_fingerprint].items():
             issuer = packet_dump_field(revocation, 'Issuer')
-            output_file = (key_dir / Path(f'subkeys/{signature}/revocation/{issuer}.asc'))
+            output_file = (key_dir / Path(f'subkey/{signature}/revocation/{issuer}.asc'))
             debug(f'Writing file {output_file} from {revocation}')
-            (key_dir / Path(f"subkeys/{signature}/revocation")).mkdir(parents=True, exist_ok=True)
+            (key_dir / Path(f"subkey/{signature}/revocation")).mkdir(parents=True, exist_ok=True)
             packet_join(packets=[revocation], output=output_file)
 
 
@@ -533,7 +533,7 @@ def persist_certifications(
 
     for key, current_certifications in certifications.items():
         for certification in current_certifications:
-            certification_dir = key_dir / Path("uids") / key / 'certification'
+            certification_dir = key_dir / 'uid' / key / 'certification'
             certification_dir.mkdir(parents=True, exist_ok=True)
             issuer = packet_dump_field(certification, 'Issuer')
 
@@ -571,7 +571,7 @@ def persist_revocations(
 
     for key, current_revocations in revocations.items():
         for revocation in current_revocations:
-            revocation_dir = key_dir / Path("uids") / key / 'revocation'
+            revocation_dir = key_dir / 'uid' / key / 'revocation'
             revocation_dir.mkdir(parents=True, exist_ok=True)
 
             issuer = packet_dump_field(revocation, 'Issuer')
@@ -921,7 +921,7 @@ def export_revoked(certs: List[Path], main_keys: List[str], output: Path, min_re
                     for cert_dir in user_dir.iterdir():
                         debug(f"Inspecting public key {cert_dir.name}")
                         foreign_revocations[cert_dir.stem] = []
-                        for revocation_cert in cert_dir.glob("uids/*/revocation/*.asc"):
+                        for revocation_cert in cert_dir.glob("uid/*/revocation/*.asc"):
                             foreign_revocations[cert_dir.stem] += [
                                 revocation_cert.stem for main_key in main_keys
                                 if main_key.endswith(revocation_cert.stem)
