@@ -799,8 +799,7 @@ def temp_join_keys(sources: List[Path], temp_dir: Path, force: bool) -> List[Pat
                     for user_cert_number, user_cert_dir in enumerate(sorted(user_dir.iterdir())):
                         if user_cert_dir.is_dir():
                             cert_path = (
-                                temp_dir
-                                / (
+                                temp_dir / (
                                     f"{str(source_number).zfill(4)}"
                                     f"-{str(user_number).zfill(4)}"
                                     f"-{str(user_cert_number).zfill(4)}.asc"
