@@ -753,19 +753,13 @@ def convert(
     """
 
     directories: List[Path] = []
-    if source.is_dir():
-        for key in source.iterdir():
-            name = name_override or key.stem
-            for cert in keyring_split(working_dir=working_dir, keyring=key):
-                directories.append(
-                    convert_certificate(working_dir=working_dir, certificate=cert, name_override=name)
-                )
-    else:
-        name = name_override or source.stem
-        for cert in keyring_split(working_dir=working_dir, keyring=source):
+    keys: Iterable[Path] = source.iterdir() if source.is_dir() else [source]
+
+    for key in keys:
+        name = name_override or key.stem
+        for cert in keyring_split(working_dir=working_dir, keyring=key):
             directories.append(
-                convert_certificate(working_dir=working_dir, certificate=cert, name_override=name)
-            )
+                convert_certificate(working_dir=working_dir, certificate=cert, name_override=name))
 
     for path in directories:
         (target_dir / path.name).mkdir(exist_ok=True)
