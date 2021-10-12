@@ -632,45 +632,29 @@ def packet_dump_field(packet: Path, field: str) -> str:
     return lines[0].split(maxsplit=1)[1]
 
 
-def sanitize_certificate_file(working_dir: Path, certificate: Path) -> List[Path]:
-    """Sanitize a certificate file, potentially containing several certificates
+def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
+    """Split a file containing a PGP keyring into separate certificate files
 
-    If the input file holds several certificates, they are split into respective files below working_dir and their
-    paths are returned. Else the path to the input certificate file is returned.
-
-    This is done to be able to read all certificates contained in a file (`sq` only reads the first).
+    The file is split using sq
 
     Parameters
     ----------
     working_dir: Path
-        The path of the working directory below which to create split certificates
-    certificate: Path
-        The absolute path of a file containing one or several PGP certificates
+        The path of the working directory below which to create the output files
+    keyring: Path
+        The path of a file containing a PGP keyring
 
     Returns
     -------
-    List[Path]
-        A list of paths that either contain the input certificate or several split certificates
+    Iterable[Path]
+        An iterable over the naturally sorted list of certificate files derived from a keyring
     """
 
-    begin_cert = "-----BEGIN PGP PUBLIC KEY BLOCK-----"
-    end_cert = "-----END PGP PUBLIC KEY BLOCK-----"
-    certificate_list: List[Path] = []
+    keyring_dir = Path(mkdtemp(dir=working_dir, prefix='keyring-')).absolute()
 
-    with open(file=certificate, mode="r") as certificate_file:
-        file = certificate_file.read()
-        if file.count(begin_cert) > 1 and file.count(end_cert) > 1:
-            debug(f"Several public keys detected in file: {certificate}")
-            for split_cert in [f"{cert}{end_cert}\n" for cert in list(filter(None, file.split(f"{end_cert}\n")))]:
-                split_cert_dir = Path(mkdtemp(dir=working_dir)).absolute()
-                split_cert_path = split_cert_dir / certificate.name
-                with open(file=split_cert_path, mode="w") as split_cert_file:
-                    split_cert_file.write(split_cert)
-                    debug(f"Writing split cert to file: {split_cert_path}")
-                    certificate_list.append(split_cert_path)
-            return certificate_list
-        else:
-            return [certificate]
+    with cwd(keyring_dir):
+        system(['sq', 'keyring', 'split', '--prefix', '', str(keyring)])
+    return natural_sort_path(keyring_dir.iterdir())
 
 
 def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
@@ -746,9 +730,9 @@ def convert(
     target_dir: Path,
     name_override: Optional[str] = None,
 ) -> Path:
-    """Convert a path containing PGP public key material to a decomposed directory structure
+    """Convert a path containing PGP certificate material to a decomposed directory structure
 
-    Any PGP public key material described by source is first sanitized (split) by `sanitize_certificate_file()`.
+    Any input is first split by `keyring_split()` into individual certificates.
 
     Parameters
     ----------
@@ -770,14 +754,16 @@ def convert(
     directories: List[Path] = []
     if source.is_dir():
         for key in source.iterdir():
-            for sane_cert in sanitize_certificate_file(working_dir=working_dir, certificate=key):
+            name = name_override or key.stem
+            for cert in keyring_split(working_dir=working_dir, keyring=key):
                 directories.append(
-                    convert_certificate(working_dir=working_dir, certificate=sane_cert, name_override=name_override)
+                    convert_certificate(working_dir=working_dir, certificate=cert, name_override=name)
                 )
     else:
-        for sane_cert in sanitize_certificate_file(working_dir=working_dir, certificate=source):
+        name = name_override or source.stem
+        for cert in keyring_split(working_dir=working_dir, keyring=source):
             directories.append(
-                convert_certificate(working_dir=working_dir, certificate=sane_cert, name_override=name_override)
+                convert_certificate(working_dir=working_dir, certificate=cert, name_override=name)
             )
 
     for path in directories:
