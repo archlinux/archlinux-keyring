@@ -675,7 +675,7 @@ def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
         An iterable over the naturally sorted list of packet files derived from certificate
     """
 
-    packet_dir = Path(mkdtemp(dir=working_dir)).absolute()
+    packet_dir = Path(mkdtemp(dir=working_dir, prefix='packet-')).absolute()
 
     with cwd(packet_dir):
         system(['sq', 'packet', 'split', '--prefix', '', str(certificate)])
@@ -1072,7 +1072,7 @@ if __name__ == '__main__':
         basicConfig(level=DEBUG)
 
     # temporary working directory that gets auto cleaned
-    with TemporaryDirectory() as tempdir:
+    with TemporaryDirectory(prefix='arch-keyringctl-') as tempdir:
         working_dir = Path(tempdir)
         debug(f'Working directory: {working_dir}')
         with cwd(working_dir):
@@ -1082,7 +1082,7 @@ if __name__ == '__main__':
                     target_dir = args.target
                 else:
                     # persistent target directory
-                    target_dir = Path(mkdtemp()).absolute()
+                    target_dir = Path(mkdtemp(prefix='arch-keyringctl-')).absolute()
 
             if 'convert' == args.subcommand:
                 print(convert(working_dir, args.source, target_dir))
