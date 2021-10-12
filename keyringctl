@@ -774,8 +774,24 @@ def convert(
     return target_dir
 
 
-def keyring_import(working_dir: Path, source: Path, target_dir: Optional[Path] = None):
-    pass
+def keyring_import(working_dir: Path, source: Path, keyring_root: Path) -> None:
+    """Import a path containing PGP certificate material to the local keyring
+
+    Any input is converted to a decomposed directory structure by `convert` and
+    applied to the keyring in `keyring_root`.
+
+    Parameters
+    ----------
+    working_dir: Path
+        A directory to use for temporary files
+    source: Path
+        A path to a file or directory to import
+    keyring_root: Path
+        The root directory path of the local keyring
+    """
+    target_dir = keyring_root / Path('packager')
+    target_dir.mkdir(parents=True, exist_ok=True)
+    convert(working_dir, source, target_dir)
 
 
 def temp_join_keys(sources: List[Path], temp_dir: Path, force: bool) -> List[Path]:
@@ -1073,6 +1089,7 @@ if __name__ == '__main__':
 
     # temporary working directory that gets auto cleaned
     with TemporaryDirectory(prefix='arch-keyringctl-') as tempdir:
+        keyring_root = Path().absolute()
         working_dir = Path(tempdir)
         debug(f'Working directory: {working_dir}')
         with cwd(working_dir):
@@ -1087,7 +1104,7 @@ if __name__ == '__main__':
             if 'convert' == args.subcommand:
                 print(convert(working_dir, args.source, target_dir))
             elif 'import' == args.subcommand:
-                keyring_import(working_dir, args.source, target_dir)
+                keyring_import(working_dir, args.source, keyring_root)
             elif 'export' == args.subcommand:
                 export_keyring(
                     working_dir=working_dir,
