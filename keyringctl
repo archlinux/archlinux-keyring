@@ -1074,31 +1074,30 @@ if __name__ == '__main__':
     # temporary working directory that gets auto cleaned
     with TemporaryDirectory() as tempdir:
         working_dir = Path(tempdir)
-        chdir(working_dir)
         debug(f'Working directory: {working_dir}')
+        with cwd(working_dir):
+            if args.subcommand in ["convert", "import"]:
+                if args.target:
+                    args.target.mkdir(parents=True, exist_ok=True)
+                    target_dir = args.target
+                else:
+                    # persistent target directory
+                    target_dir = Path(mkdtemp()).absolute()
 
-        if args.subcommand in ["convert", "import"]:
-            if args.target:
-                args.target.mkdir(parents=True, exist_ok=True)
-                target_dir = args.target
-            else:
-                # persistent target directory
-                target_dir = Path(mkdtemp()).absolute()
+            if 'convert' == args.subcommand:
+                print(convert(working_dir, args.source, target_dir))
+            elif 'import' == args.subcommand:
+                keyring_import(working_dir, args.source, target_dir)
+            elif 'export' == args.subcommand:
+                export_keyring(
+                    working_dir=working_dir,
+                    main=args.main,
+                    sources=args.source,
+                    output=args.output,
+                    force=args.force,
+                    pacman_integration=args.pacman_integration,
+                )
 
-        if 'convert' == args.subcommand:
-            print(convert(working_dir, args.source, target_dir))
-        elif 'import' == args.subcommand:
-            keyring_import(working_dir, args.source, target_dir)
-        elif 'export' == args.subcommand:
-            export_keyring(
-                working_dir=working_dir,
-                main=args.main,
-                sources=args.source,
-                output=args.output,
-                force=args.force,
-                pacman_integration=args.pacman_integration,
-            )
-
-        if args.wait:
-            print('Press [ENTER] to continue')
-            input()
+            if args.wait:
+                print('Press [ENTER] to continue')
+                input()
