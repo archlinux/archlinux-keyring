@@ -762,30 +762,10 @@ def convert(
                 convert_certificate(working_dir=working_dir, certificate=cert, name_override=name))
 
     for path in directories:
-        (target_dir / path.name).mkdir(exist_ok=True)
+        (target_dir / path.name).mkdir(parents=True, exist_ok=True)
         copytree(src=path, dst=(target_dir / path.name), dirs_exist_ok=True)
 
     return target_dir
-
-
-def keyring_import(working_dir: Path, source: Path, keyring_root: Path) -> None:
-    """Import a path containing PGP certificate material to the local keyring
-
-    Any input is converted to a decomposed directory structure by `convert` and
-    applied to the keyring in `keyring_root`.
-
-    Parameters
-    ----------
-    working_dir: Path
-        A directory to use for temporary files
-    source: Path
-        A path to a file or directory to import
-    keyring_root: Path
-        The root directory path of the local keyring
-    """
-    target_dir = keyring_root / 'packager'
-    target_dir.mkdir(parents=True, exist_ok=True)
-    convert(working_dir, source, target_dir)
 
 
 def temp_join_keys(sources: List[Path], temp_dir: Path, force: bool) -> List[Path]:
@@ -980,6 +960,7 @@ def export_keyring(
         f"and {[str(source_dir) for source_dir in sources]}."
     )
 
+    output.parent.mkdir(parents=True, exist_ok=True)
     cmd = ['sq', 'keyring', 'merge', '-o', str(output)]
     if force:
         cmd.insert(1, '--force')
@@ -1043,9 +1024,34 @@ if __name__ == '__main__':
         help='override the username to use (only useful when using a single file as source)',
     )
 
-    import_parser = subcommands.add_parser('import')
-    import_parser.add_argument('source', type=absolute_path, help='File or directory')
-    import_parser.add_argument('--target', type=absolute_path, help='Target directory')
+    import_main_parser = subcommands.add_parser(
+        'import-main',
+        help="import one or several PGP keys to the main signing keys"
+    )
+    import_main_parser.add_argument('source', type=absolute_path, help='File or directory')
+    import_main_parser.add_argument(
+        '--name',
+        type=str,
+        default=None,
+        help='override the username to use (only useful when using a single file as source)',
+    )
+
+    import_packager_parser = subcommands.add_parser(
+        'import-packager',
+        help="import one or several PGP keys to the packager keys"
+    )
+    import_packager_parser.add_argument('source', type=absolute_path, help='File or directory')
+    import_packager_parser.add_argument(
+        '--name',
+        type=str,
+        default=None,
+        help='override the username to use (only useful when using a single file as source)',
+    )
+
+    export_keyring_parser = subcommands.add_parser(
+        'export-keyring',
+        help="export PGP packet data below main/ and packagers/ to output/archlinux.gpg alongside pacman integration",
+    )
 
     export_parser = subcommands.add_parser(
         'export',
@@ -1087,18 +1093,37 @@ if __name__ == '__main__':
         working_dir = Path(tempdir)
         debug(f'Working directory: {working_dir}')
         with cwd(working_dir):
-            if args.subcommand in ["convert", "import"]:
-                if args.target:
-                    args.target.mkdir(parents=True, exist_ok=True)
-                    target_dir = args.target
-                else:
-                    # persistent target directory
-                    target_dir = Path(mkdtemp(prefix='arch-keyringctl-')).absolute()
-
             if 'convert' == args.subcommand:
-                print(convert(working_dir, args.source, target_dir))
-            elif 'import' == args.subcommand:
-                keyring_import(working_dir, args.source, keyring_root)
+                print(
+                    convert(working_dir, args.source, target_dir=Path(mkdtemp(prefix='arch-keyringctl-')).absolute())
+                )
+            elif 'import-main' == args.subcommand:
+                print(
+                    convert(
+                        working_dir=working_dir,
+                        source=args.source,
+                        target_dir=keyring_root / "main",
+                        name_override=args.name,
+                    )
+                )
+            elif 'import-packager' == args.subcommand:
+                print(
+                    convert(
+                        working_dir=working_dir,
+                        source=args.source,
+                        target_dir=keyring_root / "packagers",
+                        name_override=args.name,
+                    )
+                )
+            elif 'export-keyring' == args.subcommand:
+                export_keyring(
+                    working_dir=working_dir,
+                    main=[keyring_root / "main"],
+                    sources=[keyring_root / "packagers"],
+                    output=keyring_root / "output" / "archlinux.gpg",
+                    force=True,
+                    pacman_integration=True,
+                )
             elif 'export' == args.subcommand:
                 export_keyring(
                     working_dir=working_dir,
