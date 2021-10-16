@@ -1,22 +1,23 @@
-V=20211028
+PREFIX ?= /usr/local
+KEYRING_TARGET_DIR=$(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+KEYRING_FILES=$(wildcard output/*.gpg) $(wildcard output/*-revoked) $(wildcard output/*-trusted)
 
-PREFIX = /usr/local
+all: build
+
+lint:
+	black --check --diff keyringctl
+	isort --diff .
+	flake8 keyringctl
+	mypy --install-types --non-interactive keyringctl
+
+build:
+	./keyringctl -v export-keyring
 
 install:
-	install -dm755 $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-	install -m0644 archlinux.gpg $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-	install -m0644 archlinux-trusted $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-	install -m0644 archlinux-revoked $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	install -vDm 755 $(KEYRING_FILES) -t $(KEYRING_TARGET_DIR)
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/share/pacman/keyrings/archlinux{.gpg,-trusted,-revoked}
-	rmdir -p --ignore-fail-on-non-empty $(DESTDIR)$(PREFIX)/share/pacman/keyrings/
+	rm -f $(KEYRING_TARGET_DIR)/archlinux{.gpg,-trusted,-revoked}
+	rmdir -p --ignore-fail-on-non-empty $(KEYRING_TARGET_DIR)
 
-dist:
-	git archive --format=tar --prefix=archlinux-keyring-$(V)/ $(V) | gzip -9 > archlinux-keyring-$(V).tar.gz
-	gpg --detach-sign --use-agent archlinux-keyring-$(V).tar.gz
-
-upload:
-	scp archlinux-keyring-$(V).tar.gz archlinux-keyring-$(V).tar.gz.sig repos.archlinux.org:/srv/ftp/other/archlinux-keyring/
-
-.PHONY: install uninstall dist upload
+.PHONY: build install lint uninstall
