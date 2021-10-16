@@ -1,7 +1,9 @@
+---
 image: archlinux:latest
 
 stages:
   - lint
+  - integration
 
 variables:
   PACMAN_CACHE: "${CI_PROJECT_DIR}/.pacman/pkg"
@@ -24,3 +26,33 @@ check-new-key:
     changes:
       - master-keyids
       - packager-keyids
+
+lint:
+  stage: lint
+  before_script:
+    - install -d "${PACMAN_CACHE}"
+    - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" make flake8 mypy python-black python-isort
+  script:
+    - make lint
+  only:
+    refs:
+      - merge_requests
+    changes:
+      - keyringctl
+
+build_install:
+  stage: integration
+  before_script:
+    - install -d "${PACMAN_CACHE}"
+    - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" make python sequoia-sq
+  script:
+    - ./keyringctl import-main master/
+    - ./keyringctl import-main master-revoked/
+    - ./keyringctl import-packager packager/
+    - ./keyringctl import-packager packager-revoked/
+    - make
+    - make install PREFIX=/usr
+    - pacman-key --init
+    - pacman-key --populate archlinux
+    - pacman-key --updatedb
+    - pacman -Syu
