@@ -25,7 +25,7 @@ from tempfile import TemporaryDirectory
 from tempfile import mkdtemp
 
 from logging import basicConfig
-from logging import debug
+from logging import debug, error
 from logging import DEBUG
 
 from typing import Dict
@@ -537,10 +537,16 @@ def persist_certifications(
             certification_dir.mkdir(parents=True, exist_ok=True)
             issuer = packet_dump_field(certification, 'Issuer')
 
-            packets = [pubkey, uids[key], uid_binding_sig[key], certification]
-            output_file = certification_dir / f'{issuer}.asc'
-            debug(f'Writing file {output_file} from {certification}')
-            packet_join(packets, output_file)
+            if uids.get(key) and uid_binding_sig.get(key):
+                packets = [pubkey, uids[key], uid_binding_sig[key], certification]
+                output_file = certification_dir / f'{issuer}.asc'
+                debug(f'Writing file {output_file} from {certification}')
+                packet_join(packets, output_file)
+            else:
+                error(
+                    f"Public key '{pubkey}' does not provide "
+                    f"{'the UID binding signature' if not uid_binding_sig.get(key) else ''} for UID '{key}', "
+                    "so its certifications can not be used!")
 
 
 def persist_revocations(
