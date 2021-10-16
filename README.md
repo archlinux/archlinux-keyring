@@ -1,30 +1,73 @@
-# Arch Linux Keyring
+# archlinux-keyring
 
-Repository for the Arch Linux keyring package.
+The archlinux-keyring project holds PGP packet material and tooling
+(`keyringctl`) to create the distribution keyring for Arch Linux.
+The keyring is used by pacman to establish the web of trust for the packagers
+of the distribution.
 
-## Addition/Removal/Update of a packaging key
+The PGP packets describing the main signing keys can be found below the
+[main](main) directory, while those of the packagers are located below the
+[packagers](packagers) directory.
 
-1. Get the keyid from the bugreport in the [keyring
-   project](https://bugs.archlinux.org/index.php?project=7&do=index&switch=1)
-2. Add the keyid to `packager-keyids` in alphabetic order, following this
-   format: full size keyid, a tab, nickname.
+## Requirements
 
-## Revoking a packager key
+The following packages need to be installed to be able to create a PGP keyring
+from the provided data structure and to install it:
 
-1. Create a key removal task in the [keyring
-   project](https://bugs.archlinux.org/index.php?project=7&do=index&switch=1).
-2. Remove the keyid of the revoked user from `packager-keyids`.
-3. Add the removed keyid to `packager-revoked-keyids`, in alphabetic order,
-   following this format: full size keyid, a tab, nickname, a tab and reason of
-   revocation.
+* make
+* python
+* sequoia-sq
 
-## Keyring release
+## Installation
 
-1. bump the version in the Makefile
-2. Run update-keys
-4. git add the new .asc file in the packager directory.
-4. Commit everything as 'Update keyring'
-5. Create a new tag ```git tag -s $(date +"%Y%m%d")```
-6. Push changes
-7. Upload the source tarball with ```make dist upload```
-8. Update the package
+To install archlinux-keyring system-wide use the included `Makefile`:
+
+```bash
+make install
+```
+
+## Contribute
+
+Development of archlinux-keyring takes place on Arch Linux' Gitlab:
+https://gitlab.archlinux.org/archlinux/archlinux-keyring.
+
+Please read our distribution-wide [Code of
+Conduct](https://terms.archlinux.org/docs/code-of-conduct/) before
+contributing, to understand what actions will and will not be tolerated.
+
+Read our [contributing guide](CONTRIBUTING.md) to learn more about how to
+provide fixes or improvements for the code base and how to add, update or
+remove key material.
+
+Discussion around archlinux-keyring may take place on the [arch-projects
+mailing list](https://lists.archlinux.org/listinfo/arch-projects) and in
+[#archlinux-projects](ircs://irc.libera.chat/archlinux-projects) on [Libera
+Chat](https://libera.chat/).
+
+All past and present authors of archlinux-keyring are listed in
+[AUTHORS](AUTHORS.md).
+
+## Releases
+
+[Releases of
+archlinux-keyring](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/tags)
+are created by its current maintainer [Christian
+Hesse](https://gitlab.archlinux.org/eworm). Tags are signed using the PGP key
+with the ID `02FD1C7A934E614545849F19A6234074498E9CEE`.
+
+To verify a tag, first import the relevant PGP key:
+
+```bash
+gpg --auto-key-locate wkd --search-keys eworm@archlinux.org
+```
+
+Afterwards a tag can be verified from a clone of this repository:
+
+```bash
+git verify-tag <tag>
+```
+
+## License
+
+Archlinux-keyring is licensed under the terms of the **GPL-3.0-or-later** (see
+[LICENSE](LICENSE)).
