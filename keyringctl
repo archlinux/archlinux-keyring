@@ -705,6 +705,78 @@ def simplify_user_id(user_id: str) -> str:
     return user_id
 
 
+def derive_user_from_target(working_dir: Path, target_dir: Path, certificate: Path) -> Optional[str]:
+    """Attempt to derive the username of a public key from a target directory
+
+    Parameters
+    ----------
+    working_dir: Path
+        A directory to use for temporary files
+    target_dir: Path
+        The directory in which to look up a username
+    certificate: Path
+        A public key file
+
+    Raises
+    ------
+    Exception
+        If more than one username is found (a public key can only belong to one individual)
+
+    Returns
+    -------
+    Optional[str]
+        A string representing the username a public key certificate belongs to, None otherwise
+    """
+
+    def get_certificate_fingerprint(working_dir: Path, certificate: Path) -> str:
+        """Get the certificate fingerprint from a PGP public key file
+
+        Parameters
+        ----------
+        working_dir: Path
+            A directory to use for temporary files
+        certificate: Path
+            A PGP public key file
+
+        Raises
+        ------
+        Exception
+            If no fingerprint can be found in the provided PGP public key file
+
+        Returns
+        -------
+        str
+            The fingerprint of the PGP public key file
+        """
+
+        certificate_fingerprint = ""
+        for packet in packet_split(working_dir=working_dir, certificate=certificate):
+            if packet.name.endswith("--PublicKey"):
+                certificate_fingerprint = packet_dump_field(packet, "Fingerprint")
+
+        if not certificate_fingerprint:
+            raise Exception(f"The public key file {certificate} does not provide a PublicKey fingerprint.")
+
+        return certificate_fingerprint
+
+    certificate_fingerprint = get_certificate_fingerprint(working_dir=working_dir, certificate=certificate)
+    debug(f"Derived fingerprint '{certificate_fingerprint}' from {certificate}")
+
+    matches = list(target_dir.glob(f"*/{certificate_fingerprint}"))
+
+    if len(matches) > 1:
+        raise Exception(
+            f"More than one username found in {target_dir} when probing for fingerprint '{certificate_fingerprint}'!"
+        )
+    elif len(matches) == 0:
+        debug(f"Can not derive username from target directory for certificate {certificate}")
+        return None
+    else:
+        username = matches[0].parent.stem
+        debug(f"Successfully derived username '{username}' from target directory for certificate {certificate}")
+        return username
+
+
 def convert(
     working_dir: Path,
     source: Path,
@@ -736,8 +808,12 @@ def convert(
     keys: Iterable[Path] = source.iterdir() if source.is_dir() else [source]
 
     for key in keys:
-        name = name_override or key.stem
         for cert in keyring_split(working_dir=working_dir, keyring=key):
+            name = (
+                name_override
+                or derive_user_from_target(working_dir=working_dir, target_dir=target_dir, certificate=cert)
+                or key.stem
+            )
             directories.append(convert_certificate(working_dir=working_dir, certificate=cert, name_override=name))
 
     for path in directories:
