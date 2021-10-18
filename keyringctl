@@ -5,15 +5,32 @@
 from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
-from logging import DEBUG, basicConfig, debug, error
-from os import chdir, getcwd
+from logging import DEBUG
+from logging import basicConfig
+from logging import debug
+from logging import error
+from os import chdir
+from os import getcwd
 from pathlib import Path
-from re import escape, split, sub
+from re import escape
+from re import split
+from re import sub
 from shutil import copytree
-from subprocess import PIPE, CalledProcessError, check_output
-from sys import exit, stderr
-from tempfile import TemporaryDirectory, mkdtemp
-from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
+from subprocess import PIPE
+from subprocess import CalledProcessError
+from subprocess import check_output
+from sys import exit
+from sys import stderr
+from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
+from typing import Dict
+from typing import Iterable
+from typing import Iterator
+from typing import List
+from typing import Optional
+from typing import Set
+from typing import Tuple
+from typing import Union
 
 
 @contextmanager
