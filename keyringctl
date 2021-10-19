@@ -70,7 +70,7 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
         An Iterable of paths that are naturally sorted
     """
 
-    def convert(text: str) -> Union[int, str]:
+    def convert_text_chunk(text: str) -> Union[int, str]:
         """Convert input text to int or str
 
         Parameters
@@ -100,7 +100,7 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
             A list of either int or str objects that may serve as 'key' argument for sorted()
         """
 
-        return [convert(c) for c in split("([0-9]+)", str(key.name))]
+        return [convert_text_chunk(c) for c in split("([0-9]+)", str(key.name))]
 
     return sorted(_list, key=alphanum_key)
 
