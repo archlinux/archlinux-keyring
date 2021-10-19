@@ -718,7 +718,7 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
         A string representing the username a public key certificate belongs to, None otherwise
     """
 
-    matches = list(keyring_dir.glob(f"*/{certificate_fingerprint}"))
+    matches = list(keyring_dir.glob(f"*/*{certificate_fingerprint}"))
 
     if len(matches) > 1:
         raise Exception(
