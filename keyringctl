@@ -861,9 +861,8 @@ def convert(
     for key in keys:
         for cert in keyring_split(working_dir=working_dir, keyring=key):
             name = (
-                name_override
-                or derive_user_from_target(working_dir=working_dir, target_dir=target_dir, certificate=cert)
-                or key.stem
+                name_override or derive_user_from_target(working_dir=working_dir, target_dir=target_dir,
+                                                         certificate=cert) or key.stem
             )
             directories.append(
                 convert_certificate(
