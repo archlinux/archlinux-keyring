@@ -178,8 +178,8 @@ def convert_certificate(  # noqa: ignore=C901
     # root packets
     certificate_fingerprint: Optional[Fingerprint] = None
     pubkey: Optional[Path] = None
-    direct_sigs: Dict[str, List[Path]] = defaultdict(list)
-    direct_revocations: Dict[str, List[Path]] = defaultdict(list)
+    direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
 
     # subkey packets
     subkeys: Dict[Fingerprint, Path] = {}
@@ -228,7 +228,7 @@ def convert_certificate(  # noqa: ignore=C901
             if not certificate_fingerprint:
                 raise Exception('missing certificate fingerprint for "{packet.name}"')
 
-            issuer = packet_dump_field(packet, "Issuer")
+            issuer: Fingerprint = Fingerprint(packet_dump_field(packet, "Issuer"))
             signature_type = packet_dump_field(packet, "Type")
 
             if current_packet_mode == "pubkey":
@@ -441,7 +441,7 @@ def persist_subkey_revocations(
 
 
 def persist_direct_sigs(
-    direct_sigs: Dict[str, List[Path]],
+    direct_sigs: Dict[Fingerprint, List[Path]],
     pubkey: Path,
     key_dir: Path,
     sig_type: str = "certification",
@@ -451,7 +451,7 @@ def persist_direct_sigs(
 
     Parameters
     ----------
-    direct_sigs: Dict[str, List[Path]]
+    direct_sigs: Dict[Fingerprint, List[Path]]
         The direct sigs to write to file
     pubkey: Path
         The path to the public key of the root key
