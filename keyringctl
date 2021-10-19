@@ -1141,6 +1141,8 @@ def export_keyring(
         An output file that all PGP packet data is written to
     force: bool
         Whether to force the execution of packet_join()
+    pacman_integration: bool
+        Whether to write pacman compatible trust files
     """
 
     main = [source.absolute() for source in main]
