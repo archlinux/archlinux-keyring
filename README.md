@@ -7,7 +7,7 @@ of the distribution.
 
 The PGP packets describing the main signing keys can be found below the
 [main](main) directory, while those of the packagers are located below the
-[packagers](packagers) directory.
+[packager](packager) directory.
 
 ## Requirements
 

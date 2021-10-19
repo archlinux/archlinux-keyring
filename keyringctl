@@ -1157,7 +1157,7 @@ if __name__ == "__main__":
 
     export_keyring_parser = subcommands.add_parser(
         "export-keyring",
-        help="export PGP packet data below main/ and packagers/ to output/archlinux.gpg alongside pacman integration",
+        help="export PGP packet data below main/ and packager/ to output/archlinux.gpg alongside pacman integration",
     )
 
     export_parser = subcommands.add_parser(
@@ -1211,7 +1211,7 @@ if __name__ == "__main__":
                         name_override=args.name,
                         fingerprint_filter=get_fingerprints(
                             working_dir=working_dir,
-                            decomposed_paths=[keyring_root / "main", keyring_root / "packagers"],
+                            decomposed_paths=[keyring_root / "main", keyring_root / "packager"],
                         ),
                     )
                 )
@@ -1220,11 +1220,11 @@ if __name__ == "__main__":
                     convert(
                         working_dir=working_dir,
                         source=args.source,
-                        target_dir=keyring_root / "packagers",
+                        target_dir=keyring_root / "packager",
                         name_override=args.name,
                         fingerprint_filter=get_fingerprints(
                             working_dir=working_dir,
-                            decomposed_paths=[keyring_root / "main", keyring_root / "packagers"],
+                            decomposed_paths=[keyring_root / "main", keyring_root / "packager"],
                         ),
                     )
                 )
@@ -1232,7 +1232,7 @@ if __name__ == "__main__":
                 export_keyring(
                     working_dir=working_dir,
                     main=[keyring_root / "main"],
-                    sources=[keyring_root / "packagers"],
+                    sources=[keyring_root / "packager"],
                     output=keyring_root / "output" / "archlinux.gpg",
                     force=True,
                     pacman_integration=True,
