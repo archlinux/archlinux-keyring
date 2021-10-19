@@ -36,6 +36,7 @@ from typing import Union
 
 Fingerprint = NewType('Fingerprint', str)
 Uid = NewType('Uid', str)
+Username = NewType('Username', str)
 
 
 @contextmanager
@@ -140,7 +141,7 @@ def convert_certificate(  # noqa: ignore=C901
     working_dir: Path,
     certificate: Path,
     keyring_dir: Path,
-    name_override: Optional[str] = None,
+    name_override: Optional[Username] = None,
     fingerprint_filter: Optional[Set[Fingerprint]] = None,
 ) -> Path:
     """Convert a single file public key certificate into a decomposed directory structure of multiple PGP packets
@@ -158,7 +159,7 @@ def convert_certificate(  # noqa: ignore=C901
         The path to a public key certificate
     keyring_dir: Path
         The path of the keyring used to try to derive the username from the public key fingerprint
-    name_override: Optional[str]
+    name_override: Optional[Username]
         An optional string to override the username in the to be created output directory structure
     fingerprint_filter: Optional[Set[Fingerprint]]
         An optional list of strings defining fingerprints of PGP public keys that all certificates will be filtered
@@ -279,7 +280,7 @@ def convert_certificate(  # noqa: ignore=C901
         raise Exception("missing certificate public-key")
 
     name_override = name_override or derive_username_from_fingerprint(keyring_dir=keyring_dir,
-                                                                      certificate_fingerprint=certificate_fingerprint) or certificate.stem
+                                                                      certificate_fingerprint=certificate_fingerprint) or Username(certificate.stem)
 
     user_dir = working_dir / name_override
     key_dir = user_dir / certificate_fingerprint
@@ -697,7 +698,7 @@ def simplify_user_id(user_id: Uid) -> Uid:
     return Uid(user_id_str)
 
 
-def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint: Fingerprint) -> Optional[str]:
+def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint: Fingerprint) -> Optional[Username]:
     """Attempt to derive the username of a public key fingerprint from a keyring directory
 
     Parameters
@@ -714,7 +715,7 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
 
     Returns
     -------
-    Optional[str]
+    Optional[Username]
         A string representing the username a public key certificate belongs to, None otherwise
     """
 
@@ -730,14 +731,14 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
     else:
         username = matches[0].parent.stem
         debug(f"Successfully derived username '{username}' from target directory for fingerprint {certificate_fingerprint}")
-        return username
+        return Username(username)
 
 
 def convert(
     working_dir: Path,
     source: Path,
     target_dir: Path,
-    name_override: Optional[str] = None,
+    name_override: Optional[Username] = None,
     fingerprint_filter: Optional[Set[Fingerprint]] = None,
 ) -> Path:
     """Convert a path containing PGP certificate material to a decomposed directory structure
@@ -752,7 +753,7 @@ def convert(
         A path to a file or directory to decompose
     target_dir: Path
         A directory path to write the new directory structure to
-    name_override: Optional[str]
+    name_override: Optional[Username]
         An optional username override for the call to `convert_certificate()`
     fingerprint_filter: Optional[Set[Fingerprint]]
         An optional set of strings defining fingerprints of PGP public keys that all certificates will be filtered with
@@ -1121,7 +1122,7 @@ if __name__ == "__main__":
     convert_parser.add_argument("--target", type=absolute_path, help="target directory")
     convert_parser.add_argument(
         "--name",
-        type=str,
+        type=Username,
         default=None,
         help="override the username to use (only useful when using a single file as source)",
     )
@@ -1132,7 +1133,7 @@ if __name__ == "__main__":
     import_main_parser.add_argument("source", type=absolute_path, help="File or directory")
     import_main_parser.add_argument(
         "--name",
-        type=str,
+        type=Username,
         default=None,
         help="override the username to use (only useful when using a single file as source)",
     )
@@ -1143,7 +1144,7 @@ if __name__ == "__main__":
     import_packager_parser.add_argument("source", type=absolute_path, help="File or directory")
     import_packager_parser.add_argument(
         "--name",
-        type=str,
+        type=Username,
         default=None,
         help="override the username to use (only useful when using a single file as source)",
     )
