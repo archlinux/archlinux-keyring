@@ -1,6 +1,6 @@
 PREFIX ?= /usr/local
 KEYRING_TARGET_DIR=$(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-KEYRING_FILES=$(wildcard output/*.gpg) $(wildcard output/*-revoked) $(wildcard output/*-trusted)
+KEYRING_FILES=$(wildcard keyring/output/*.gpg) $(wildcard keyring/output/*-revoked) $(wildcard keyring/output/*-trusted)
 
 all: build
 

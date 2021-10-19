@@ -1196,7 +1196,7 @@ if __name__ == "__main__":
 
     # temporary working directory that gets auto cleaned
     with TemporaryDirectory(prefix="arch-keyringctl-") as tempdir:
-        keyring_root = Path().absolute()
+        keyring_root = Path("keyring").absolute()
         working_dir = Path(tempdir)
         debug(f"Working directory: {working_dir}")
         with cwd(working_dir):

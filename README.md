@@ -6,8 +6,8 @@ The keyring is used by pacman to establish the web of trust for the packagers
 of the distribution.
 
 The PGP packets describing the main signing keys can be found below the
-[main](main) directory, while those of the packagers are located below the
-[packager](packager) directory.
+[keyring/main](keyring/main) directory, while those of the packagers are located below the
+[keyring/packager](keyring/packager) directory.
 
 ## Requirements
 
