@@ -33,10 +33,9 @@ from typing import Set
 from typing import Tuple
 from typing import Union
 
-
-Fingerprint = NewType('Fingerprint', str)
-Uid = NewType('Uid', str)
-Username = NewType('Username', str)
+Fingerprint = NewType("Fingerprint", str)
+Uid = NewType("Uid", str)
+Username = NewType("Username", str)
 
 
 @contextmanager
@@ -279,8 +278,11 @@ def convert_certificate(  # noqa: ignore=C901
     if not pubkey:
         raise Exception("missing certificate public-key")
 
-    name_override = name_override or derive_username_from_fingerprint(keyring_dir=keyring_dir,
-                                                                      certificate_fingerprint=certificate_fingerprint) or Username(certificate.stem)
+    name_override = (
+        name_override
+        or derive_username_from_fingerprint(keyring_dir=keyring_dir, certificate_fingerprint=certificate_fingerprint)
+        or Username(certificate.stem)
+    )
 
     user_dir = working_dir / name_override
     key_dir = user_dir / certificate_fingerprint
@@ -723,14 +725,18 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
 
     if len(matches) > 1:
         raise Exception(
-            f"More than one username found in {keyring_dir} when probing for fingerprint '{certificate_fingerprint}': {matches}"
+            f"More than one username found in {keyring_dir} when probing for fingerprint '{certificate_fingerprint}': "
+            f"{matches}"
         )
     elif not matches:
         debug(f"Can not derive username from target directory for fingerprint {certificate_fingerprint}")
         return None
     else:
         username = matches[0].parent.stem
-        debug(f"Successfully derived username '{username}' from target directory for fingerprint {certificate_fingerprint}")
+        debug(
+            f"Successfully derived username '{username}' from target directory for fingerprint "
+            f"{certificate_fingerprint}"
+        )
         return Username(username)
 
 
