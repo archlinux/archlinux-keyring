@@ -145,7 +145,7 @@ def convert_certificate(  # noqa: ignore=C901
     """Convert a single file public key certificate into a decomposed directory structure of multiple PGP packets
 
     The output directory structure is created per user. The username is derived from the certificate (or overridden).
-    Below the username directory a directory tree describes the public keys componentes split up into certifications
+    Below the username directory a directory tree describes the public keys components split up into certifications
     and revocations, as well as per subkey and per uid certifications and revocations.
 
     Parameters
