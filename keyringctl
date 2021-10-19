@@ -1084,7 +1084,7 @@ def get_fingerprints_from_decomposed_dir(path: Path) -> List[Fingerprint]:
     return fingerprints
 
 
-def get_fingerprints(working_dir: Path, input_path: Path, decomposed_paths: List[Path]) -> Set[Fingerprint]:
+def get_fingerprints(working_dir: Path, decomposed_paths: List[Path]) -> Set[Fingerprint]:
     """Get the fingerprints of PGP public keys from input paths and decomposed directory structures
 
 
@@ -1092,8 +1092,6 @@ def get_fingerprints(working_dir: Path, input_path: Path, decomposed_paths: List
     ----------
     working_dir: Path
         A directory to use for temporary files
-    input_path: Path
-        The path to a source file or directory
     decomposed_paths: List[Path]
         A list of paths that identify decomposed PGP data in directory structures
 
@@ -1299,7 +1297,6 @@ if __name__ == "__main__":
                         name_override=args.name,
                         fingerprint_filter=get_fingerprints(
                             working_dir=working_dir,
-                            input_path=args.source,
                             decomposed_paths=[keyring_root / "main", keyring_root / "packagers"],
                         ),
                     )
@@ -1313,7 +1310,6 @@ if __name__ == "__main__":
                         name_override=args.name,
                         fingerprint_filter=get_fingerprints(
                             working_dir=working_dir,
-                            input_path=args.source,
                             decomposed_paths=[keyring_root / "main", keyring_root / "packagers"],
                         ),
                     )
