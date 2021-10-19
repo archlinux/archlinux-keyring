@@ -139,12 +139,14 @@ def system(cmd: List[str], exit_on_error: bool = True) -> str:
 def convert_certificate(  # noqa: ignore=C901
     working_dir: Path,
     certificate: Path,
+    keyring_dir: Path,
     name_override: Optional[str] = None,
     fingerprint_filter: Optional[Set[Fingerprint]] = None,
 ) -> Path:
     """Convert a single file public key certificate into a decomposed directory structure of multiple PGP packets
 
-    The output directory structure is created per user. The username is derived from the certificate (or overridden).
+    The output directory structure is created per user. The username is derived from the certificate via
+    `derive_username_from_fingerprint` or overridden via `name_override`.
     Below the username directory a directory tree describes the public keys components split up into certifications
     and revocations, as well as per subkey and per uid certifications and revocations.
 
@@ -154,6 +156,8 @@ def convert_certificate(  # noqa: ignore=C901
         The path of the working directory below which to create split certificates
     certificate: Path
         The path to a public key certificate
+    keyring_dir: Path
+        The path of the keyring used to try to derive the username from the public key fingerprint
     name_override: Optional[str]
         An optional string to override the username in the to be created output directory structure
     fingerprint_filter: Optional[Set[Fingerprint]]
@@ -189,7 +193,6 @@ def convert_certificate(  # noqa: ignore=C901
     revocations: Dict[Uid, List[Path]] = defaultdict(list)
 
     # intermediate variables
-    username: str = name_override or certificate.stem
     current_packet_mode: Optional[str] = None
     current_packet_fingerprint: Optional[Fingerprint] = None
     current_packet_uid: Optional[Uid] = None
@@ -275,7 +278,10 @@ def convert_certificate(  # noqa: ignore=C901
     if not pubkey:
         raise Exception("missing certificate public-key")
 
-    user_dir = working_dir / username
+    name_override = name_override or derive_username_from_fingerprint(keyring_dir=keyring_dir,
+                                                                      certificate_fingerprint=certificate_fingerprint) or certificate.stem
+
+    user_dir = working_dir / name_override
     key_dir = user_dir / certificate_fingerprint
     key_dir.mkdir(parents=True, exist_ok=True)
 
@@ -691,17 +697,15 @@ def simplify_user_id(user_id: Uid) -> Uid:
     return Uid(user_id_str)
 
 
-def derive_user_from_target(working_dir: Path, target_dir: Path, certificate: Path) -> Optional[str]:
-    """Attempt to derive the username of a public key from a target directory
+def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint: Fingerprint) -> Optional[str]:
+    """Attempt to derive the username of a public key fingerprint from a keyring directory
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    target_dir: Path
+    keyring_dir: Path
         The directory in which to look up a username
-    certificate: Path
-        A public key file
+    certificate_fingerprint: Fingerprint
+        The public key fingerprint to derive the username from
 
     Raises
     ------
@@ -714,52 +718,18 @@ def derive_user_from_target(working_dir: Path, target_dir: Path, certificate: Pa
         A string representing the username a public key certificate belongs to, None otherwise
     """
 
-    def get_certificate_fingerprint(working_dir: Path, certificate: Path) -> str:
-        """Get the certificate fingerprint from a PGP public key file
-
-        Parameters
-        ----------
-        working_dir: Path
-            A directory to use for temporary files
-        certificate: Path
-            A PGP public key file
-
-        Raises
-        ------
-        Exception
-            If no fingerprint can be found in the provided PGP public key file
-
-        Returns
-        -------
-        str
-            The fingerprint of the PGP public key file
-        """
-
-        certificate_fingerprint = ""
-        for packet in packet_split(working_dir=working_dir, certificate=certificate):
-            if packet.name.endswith("--PublicKey"):
-                certificate_fingerprint = packet_dump_field(packet, "Fingerprint")
-
-        if not certificate_fingerprint:
-            raise Exception(f"The public key file {certificate} does not provide a PublicKey fingerprint.")
-
-        return certificate_fingerprint
-
-    certificate_fingerprint = get_certificate_fingerprint(working_dir=working_dir, certificate=certificate)
-    debug(f"Derived fingerprint '{certificate_fingerprint}' from {certificate}")
-
-    matches = list(target_dir.glob(f"*/{certificate_fingerprint}"))
+    matches = list(keyring_dir.glob(f"*/{certificate_fingerprint}"))
 
     if len(matches) > 1:
         raise Exception(
-            f"More than one username found in {target_dir} when probing for fingerprint '{certificate_fingerprint}'!"
+            f"More than one username found in {keyring_dir} when probing for fingerprint '{certificate_fingerprint}': {matches}"
         )
-    elif len(matches) == 0:
-        debug(f"Can not derive username from target directory for certificate {certificate}")
+    elif not matches:
+        debug(f"Can not derive username from target directory for fingerprint {certificate_fingerprint}")
         return None
     else:
         username = matches[0].parent.stem
-        debug(f"Successfully derived username '{username}' from target directory for certificate {certificate}")
+        debug(f"Successfully derived username '{username}' from target directory for fingerprint {certificate_fingerprint}")
         return username
 
 
@@ -798,15 +768,12 @@ def convert(
 
     for key in keys:
         for cert in keyring_split(working_dir=working_dir, keyring=key):
-            name = (
-                name_override or derive_user_from_target(working_dir=working_dir, target_dir=target_dir,
-                                                         certificate=cert) or key.stem
-            )
             directories.append(
                 convert_certificate(
                     working_dir=working_dir,
                     certificate=cert,
-                    name_override=name,
+                    keyring_dir=target_dir,
+                    name_override=name_override,
                     fingerprint_filter=fingerprint_filter,
                 )
             )
