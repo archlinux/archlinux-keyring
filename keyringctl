@@ -1129,7 +1129,7 @@ if __name__ == "__main__":
 
     convert_parser = subcommands.add_parser(
         "convert",
-        help="import one or multiple PGP public keys and convert them to a decomposed directory structure",
+        help="convert one or multiple PGP public keys to a decomposed directory structure",
     )
     convert_parser.add_argument("source", type=absolute_path, help="File or directory to convert")
     convert_parser.add_argument("--target", type=absolute_path, help="target directory")
@@ -1140,27 +1140,18 @@ if __name__ == "__main__":
         help="override the username to use (only useful when using a single file as source)",
     )
 
-    import_main_parser = subcommands.add_parser(
-        "import-main", help="import one or several PGP keys to the main signing keys"
+    import_parser = subcommands.add_parser(
+        "import",
+        help="import one or several PGP keys to the keyring directory structure",
     )
-    import_main_parser.add_argument("source", type=absolute_path, help="File or directory")
-    import_main_parser.add_argument(
+    import_parser.add_argument("source", type=absolute_path, help="File or directory")
+    import_parser.add_argument(
         "--name",
         type=Username,
         default=None,
         help="override the username to use (only useful when using a single file as source)",
     )
-
-    import_packager_parser = subcommands.add_parser(
-        "import-packager", help="import one or several PGP keys to the packager keys"
-    )
-    import_packager_parser.add_argument("source", type=absolute_path, help="File or directory")
-    import_packager_parser.add_argument(
-        "--name",
-        type=Username,
-        default=None,
-        help="override the username to use (only useful when using a single file as source)",
-    )
+    import_parser.add_argument("--main", action="store_true", help="Import a main signing key into the keyring")
 
     export_keyring_parser = subcommands.add_parser(
         "export-keyring",
@@ -1209,25 +1200,13 @@ if __name__ == "__main__":
         with cwd(working_dir):
             if "convert" == args.subcommand:
                 print(convert(working_dir, args.source, target_dir=Path(mkdtemp(prefix="arch-keyringctl-")).absolute()))
-            elif "import-main" == args.subcommand:
+            elif "import" == args.subcommand:
+                target_dir = "main" if args.main else "packager"
                 print(
                     convert(
                         working_dir=working_dir,
                         source=args.source,
-                        target_dir=keyring_root / "main",
-                        name_override=args.name,
-                        fingerprint_filter=get_fingerprints(
-                            working_dir=working_dir,
-                            decomposed_paths=[keyring_root / "main", keyring_root / "packager"],
-                        ),
-                    )
-                )
-            elif "import-packager" == args.subcommand:
-                print(
-                    convert(
-                        working_dir=working_dir,
-                        source=args.source,
-                        target_dir=keyring_root / "packager",
+                        target_dir=keyring_root / target_dir,
                         name_override=args.name,
                         fingerprint_filter=get_fingerprints(
                             working_dir=working_dir,

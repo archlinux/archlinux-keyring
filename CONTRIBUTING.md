@@ -24,23 +24,23 @@ of the distribution.
 Import of a new main key is done using
 
 ```bash
-./keyringctl import-main --name <username> <file>
+./keyringctl import --main --name <username> <file>
 ```
 
 Updates to existing main keys is done using
 
 ```bash
-./keyringctl import-main <file_or_directory>
+./keyringctl import --main <file_or_directory>
 ```
 
 Import of a new packager key is done using
 
 ```bash
-./keyringctl import-packager --name <username> <file>
+./keyringctl import --name <username> <file>
 ```
 
 Updates to existing packager keys is done using
 
 ```bash
-./keyringctl import-packager <file_or_directory>
+./keyringctl import <file_or_directory>
 ```
