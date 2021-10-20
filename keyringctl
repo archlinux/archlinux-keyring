@@ -611,7 +611,8 @@ def packet_dump_field(packet: Path, field: str) -> str:
 def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
     """Split a file containing a PGP keyring into separate certificate files
 
-    The file is split using sq
+    The original keyring filename is preserved if the split only yields a single certificate.
+    The file is split using sq.
 
     Parameters
     ----------
@@ -630,7 +631,13 @@ def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
 
     with cwd(keyring_dir):
         system(["sq", "keyring", "split", "--prefix", "", str(keyring)])
-    return natural_sort_path(keyring_dir.iterdir())
+
+    keyrings: List[Path] = list(natural_sort_path(keyring_dir.iterdir()))
+
+    if 1 == len(keyrings):
+        keyrings[0] = keyrings[0].rename(keyrings[0].parent / keyring.name)
+
+    return keyrings
 
 
 def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
