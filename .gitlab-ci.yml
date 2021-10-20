@@ -46,10 +46,8 @@ build_install:
     - install -d "${PACMAN_CACHE}"
     - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" make python sequoia-sq
   script:
-    - ./keyringctl import-main master/
-    - ./keyringctl import-main master-revoked/
-    - ./keyringctl import-packager packager/
-    - ./keyringctl import-packager packager-revoked/
+    - ./keyringctl import --main master master-revoked
+    - ./keyringctl import packager packager-revoked
     - make
     - make install PREFIX=/usr
     - pacman-key --init
