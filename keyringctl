@@ -1132,7 +1132,7 @@ if __name__ == "__main__":
         help="convert one or multiple PGP public keys to a decomposed directory structure",
     )
     convert_parser.add_argument("source", type=absolute_path, help="File or directory to convert")
-    convert_parser.add_argument("--target", type=absolute_path, help="target directory")
+    convert_parser.add_argument("--target", type=absolute_path, help="Target directory instead of a random tmpdir")
     convert_parser.add_argument(
         "--name",
         type=Username,
@@ -1199,7 +1199,8 @@ if __name__ == "__main__":
         debug(f"Working directory: {working_dir}")
         with cwd(working_dir):
             if "convert" == args.subcommand:
-                print(convert(working_dir, args.source, target_dir=Path(mkdtemp(prefix="arch-keyringctl-")).absolute()))
+                target_dir = args.target or Path(mkdtemp(prefix="arch-keyringctl-")).absolute()
+                print(convert(working_dir, args.source, target_dir=target_dir))
             elif "import" == args.subcommand:
                 target_dir = "main" if args.main else "packager"
                 print(
