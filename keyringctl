@@ -1232,6 +1232,8 @@ if __name__ == "__main__":
                     force=args.force,
                     pacman_integration=args.pacman_integration,
                 )
+            else:
+                parser.print_help()
 
             if args.wait:
                 print("Press [ENTER] to continue")
