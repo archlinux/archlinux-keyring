@@ -18,6 +18,30 @@ from the provided data structure and to install it:
 * python
 * sequoia-sq
 
+## Usage
+
+Import of a new packager key
+
+```bash
+./keyringctl import <username>.asc
+# alternatively override the username otherwise derived from the filename
+./keyringctl import --name <username> <file>
+```
+
+Updates to existing packager keys
+
+```bash
+# username is automatically derived from the fingerprint
+./keyringctl import <file_or_directory>
+```
+
+Import of a new main key
+
+```bash
+# same options as packager key except mandatory --main
+./keyringctl import --main <username>.asc
+```
+
 ## Installation
 
 To install archlinux-keyring system-wide use the included `Makefile`:
@@ -28,24 +52,8 @@ make install
 
 ## Contribute
 
-Development of archlinux-keyring takes place on Arch Linux' Gitlab:
-https://gitlab.archlinux.org/archlinux/archlinux-keyring.
-
-Please read our distribution-wide [Code of
-Conduct](https://terms.archlinux.org/docs/code-of-conduct/) before
-contributing, to understand what actions will and will not be tolerated.
-
-Read our [contributing guide](CONTRIBUTING.md) to learn more about how to
-provide fixes or improvements for the code base and how to add, update or
-remove key material.
-
-Discussion around archlinux-keyring may take place on the [arch-projects
-mailing list](https://lists.archlinux.org/listinfo/arch-projects) and in
-[#archlinux-projects](ircs://irc.libera.chat/archlinux-projects) on [Libera
-Chat](https://libera.chat/).
-
-All past and present authors of archlinux-keyring are listed in
-[AUTHORS](AUTHORS.md).
+Read our [contributing guide](CONTRIBUTING.md) to learn more about guidelines and
+how to provide fixes or improvements for the code base.
 
 ## Releases
 

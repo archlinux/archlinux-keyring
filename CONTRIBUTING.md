@@ -4,8 +4,35 @@ These are the contribution guidelines for archlinux-keyring.
 All code contributions fall under the terms of the GPL-3.0-or-later (see
 [LICENSE](LICENSE)).
 
+Please read our distribution-wide [Code of
+Conduct](https://terms.archlinux.org/docs/code-of-conduct/) before
+contributing, to understand what actions will and will not be tolerated.
+
+Development of archlinux-keyring takes place on Arch Linux' Gitlab:
+https://gitlab.archlinux.org/archlinux/archlinux-keyring.
+
 Any merge request to the repository requires two approvals of authorized
 approvers (the current main key holders).
+
+## Discussion
+
+Discussion around archlinux-keyring may take place on the [arch-projects
+mailing list](https://lists.archlinux.org/listinfo/arch-projects) and in
+[#archlinux-projects](ircs://irc.libera.chat/archlinux-projects) on [Libera
+Chat](https://libera.chat/).
+
+All past and present authors of archlinux-keyring are listed in
+[AUTHORS](AUTHORS.md).
+
+## Requirements
+
+The following additional packages need to be installed to be able to lint
+and develop this project:
+
+* python-black
+* python-isort
+* flake8
+* mypy
 
 ## Keyringctl
 
@@ -14,33 +41,3 @@ The `keyringctl` script is written in typed python, which makes use of
 
 The script is type checked, linted and formatted using standard tooling.
 When providing a merge request make sure to run `make lint`.
-
-## Key directories
-
-This repository contains PGP packet data, that describes the trusted signing
-keys (below [main](main)) and the packager keys (below [packagers](packagers))
-of the distribution.
-
-Import of a new main key is done using
-
-```bash
-./keyringctl import --main --name <username> <file>
-```
-
-Updates to existing main keys is done using
-
-```bash
-./keyringctl import --main <file_or_directory>
-```
-
-Import of a new packager key is done using
-
-```bash
-./keyringctl import --name <username> <file>
-```
-
-Updates to existing packager keys is done using
-
-```bash
-./keyringctl import <file_or_directory>
-```
