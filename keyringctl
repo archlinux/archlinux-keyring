@@ -5,6 +5,7 @@
 from argparse import ArgumentParser
 from collections import defaultdict
 from contextlib import contextmanager
+from itertools import chain
 from logging import DEBUG
 from logging import basicConfig
 from logging import debug
@@ -749,7 +750,7 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
 
 def convert(
     working_dir: Path,
-    source: Path,
+    source: Iterable[Path],
     target_dir: Path,
     name_override: Optional[Username] = None,
     fingerprint_filter: Optional[Set[Fingerprint]] = None,
@@ -762,7 +763,7 @@ def convert(
     ----------
     working_dir: Path
         A directory to use for temporary files
-    source: Path
+    source: Iterable[Path]
         A path to a file or directory to decompose
     target_dir: Path
         A directory path to write the new directory structure to
@@ -778,7 +779,7 @@ def convert(
     """
 
     directories: List[Path] = []
-    keys: Iterable[Path] = source.iterdir() if source.is_dir() else [source]
+    keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], source)))
 
     for key in keys:
         for cert in keyring_split(working_dir=working_dir, keyring=key):
@@ -955,14 +956,14 @@ def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path
             trusted_certs_file.write(f"{cert}\n")
 
 
-def get_fingerprints_from_import_source(working_dir: Path, source: Path) -> List[Fingerprint]:
+def get_fingerprints_from_import_source(working_dir: Path, source: List[Path]) -> List[Fingerprint]:
     """Get all fingerprints of PGP public keys from import file(s)
 
     Parameters
     ----------
     working_dir: Path
         A directory to use for temporary files
-    source: Path
+    source: List[Path]
         The path to a source file or directory
 
     Returns
@@ -972,7 +973,7 @@ def get_fingerprints_from_import_source(working_dir: Path, source: Path) -> List
     """
 
     fingerprints: List[Fingerprint] = []
-    keys: List[Path] = list(source.iterdir()) if source.is_dir() else [source]
+    keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], source)))
 
     for key in keys:
         for certificate in keyring_split(working_dir=working_dir, keyring=key):
@@ -1131,7 +1132,7 @@ if __name__ == "__main__":
         "convert",
         help="convert one or multiple PGP public keys to a decomposed directory structure",
     )
-    convert_parser.add_argument("source", type=absolute_path, help="File or directory to convert")
+    convert_parser.add_argument("source", type=absolute_path, nargs="+", help="Files or directorie to convert")
     convert_parser.add_argument("--target", type=absolute_path, help="Target directory instead of a random tmpdir")
     convert_parser.add_argument(
         "--name",
@@ -1144,7 +1145,7 @@ if __name__ == "__main__":
         "import",
         help="import one or several PGP keys to the keyring directory structure",
     )
-    import_parser.add_argument("source", type=absolute_path, help="File or directory")
+    import_parser.add_argument("source", type=absolute_path, nargs="+", help="Files or directories to import")
     import_parser.add_argument(
         "--name",
         type=Username,

@@ -32,7 +32,7 @@ Updates to existing packager keys
 
 ```bash
 # username is automatically derived from the fingerprint
-./keyringctl import <file_or_directory>
+./keyringctl import <file_or_directory>...
 ```
 
 Import of a new main key
