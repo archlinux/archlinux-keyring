@@ -4,6 +4,8 @@
 
 from argparse import ArgumentParser
 from collections import defaultdict
+from collections.abc import Iterable
+from collections.abc import Iterator
 from contextlib import contextmanager
 from itertools import chain
 from logging import DEBUG
@@ -25,8 +27,6 @@ from sys import stderr
 from tempfile import TemporaryDirectory
 from tempfile import mkdtemp
 from typing import Dict
-from typing import Iterable
-from typing import Iterator
 from typing import List
 from typing import NewType
 from typing import Optional
