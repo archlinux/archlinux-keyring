@@ -643,7 +643,7 @@ def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
     return keyrings
 
 
-def keyring_merge(certificates: List[Path], output: Optional[Path] = None) -> str:
+def keyring_merge(certificates: List[Path], output: Optional[Path] = None, force: bool = False) -> str:
     """Merge multiple certificates into a keyring
 
     Parameters
@@ -652,6 +652,8 @@ def keyring_merge(certificates: List[Path], output: Optional[Path] = None) -> st
         List of paths to certificates to merge into a keyring
     output: Optional[Path]
         Path to a file which the keyring is written, return the result instead if None
+    force: bool
+        Whether to force overwriting existing files (defaults to False)
 
     Returns
     -------
@@ -660,6 +662,8 @@ def keyring_merge(certificates: List[Path], output: Optional[Path] = None) -> st
     """
 
     cmd = ["sq", "keyring", "merge"]
+    if force:
+        cmd.insert(1, "--force")
     if output:
         cmd += ["--output", str(output)]
     cmd += [str(cert) for cert in sorted(certificates)]
@@ -702,7 +706,7 @@ def packet_join(packets: List[Path], output: Optional[Path] = None, force: bool 
     output: Optional[Path]
         Path to a file to which all PGP packet data is written, return the result instead if None
     force: bool
-        Whether to force the execution of sq (defaults to False)
+        Whether to force overwriting existing files (defaults to False)
 
     Returns
     -------
