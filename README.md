@@ -66,6 +66,18 @@ Only export specific certificate directories in [keyring](keyring)
 ./keyringctl export <directory...>
 ```
 
+### List
+
+List all certificates in the keyring
+```bash
+./keyringctl list
+```
+
+Only show a specific main key
+```bash
+./keyringctl list --main <usernames...>
+```
+
 ## Installation
 
 To install archlinux-keyring system-wide use the included `Makefile`:

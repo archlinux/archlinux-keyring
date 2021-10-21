@@ -1128,6 +1128,39 @@ def build(
     )
 
 
+def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_keys: bool = False) -> None:
+    """List certificates in the keyring
+
+    If sources contains directories, all certificate below them are considered.
+
+    Parameters
+    ----------
+    keyring_root: Path
+        The keyring root directory to look up username shorthand sources
+    sources: Optional[List[Path]]
+        A list of username or files/directories from which to read PGP packet information (defaults to `keyring_root`)
+    main_keys: bool
+        List main keys instead of packager keys (defaults to False)
+    """
+
+    keyring_dir = keyring_root / ("main" if main_keys else "packager")
+
+    if not sources:
+        sources = list(keyring_dir.iterdir())
+
+    # resolve shorthand username exports for packager keys
+    for index, source in enumerate(sources):
+        packager_source = keyring_dir / source.name
+        if not source.exists() and packager_source.exists():
+            sources[index] = packager_source
+
+    username_length = max([len(source.name) for source in sources])
+
+    for userdir in sources:
+        certificates = [cert.name for cert in userdir.iterdir()]
+        print(f"{userdir.name:<{username_length}} {' '.join(certificates)}")
+
+
 def absolute_path(path: str) -> Path:
     """Return the absolute path of a given str
 
@@ -1203,6 +1236,18 @@ if __name__ == "__main__":
         help="build keyring PGP artifacts alongside ownertrust and revoked status files",
     )
 
+    list_parser = subcommands.add_parser(
+        "list",
+        help="list the certificates in the keyring",
+    )
+    list_parser.add_argument("--main", action="store_true", help="List main signing keys instead of packager keys")
+    list_parser.add_argument(
+        "source",
+        nargs="*",
+        help="username or files/directories containing certificates (can be provided multiple times)",
+        type=absolute_path,
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
@@ -1246,6 +1291,12 @@ if __name__ == "__main__":
                     working_dir=working_dir,
                     keyring_root=keyring_root,
                     target_dir=keyring_root.parent / "build",
+                )
+            elif "list" == args.subcommand:
+                list_keyring(
+                    keyring_root=keyring_root,
+                    sources=args.source,
+                    main_keys=args.main,
                 )
             else:
                 parser.print_help()
