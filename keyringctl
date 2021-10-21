@@ -612,10 +612,13 @@ def packet_dump_field(packet: Path, field: str) -> str:
     return lines[0].split(maxsplit=1)[1]
 
 
-def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
+def keyring_split(working_dir: Path, keyring: Path, preserve_filename: bool = False) -> Iterable[Path]:
     """Split a file containing a PGP keyring into separate certificate files
 
     The original keyring filename is preserved if the split only yields a single certificate.
+    If preserve_filename is True, all keyrings are placed into separate directories while preserving
+    the filename.
+
     The file is split using sq.
 
     Parameters
@@ -624,6 +627,8 @@ def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
         The path of the working directory below which to create the output files
     keyring: Path
         The path of a file containing a PGP keyring
+    preserve_filename: bool
+        If True, all keyrings are placed into separate directories while preserving the filename
 
     Returns
     -------
@@ -638,8 +643,10 @@ def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
 
     keyrings: List[Path] = list(natural_sort_path(keyring_dir.iterdir()))
 
-    if 1 == len(keyrings):
-        keyrings[0] = keyrings[0].rename(keyrings[0].parent / keyring.name)
+    if 1 == len(keyrings) or preserve_filename:
+        for index, key in enumerate(keyrings):
+            keyring_sub_dir = Path(mkdtemp(dir=keyring_dir, prefix=f"{keyring.name}-")).absolute()
+            keyrings[index] = key.rename(keyring_sub_dir / keyring.name)
 
     return keyrings
 
@@ -841,7 +848,7 @@ def convert(
     keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], source)))
 
     for key in keys:
-        for cert in keyring_split(working_dir=working_dir, keyring=key):
+        for cert in keyring_split(working_dir=working_dir, keyring=key, preserve_filename=True):
             directories.append(
                 convert_certificate(
                     working_dir=working_dir,
