@@ -26,6 +26,7 @@ from sys import exit
 from sys import stderr
 from tempfile import TemporaryDirectory
 from tempfile import mkdtemp
+from traceback import print_stack
 from typing import Dict
 from typing import List
 from typing import NewType
@@ -131,6 +132,7 @@ def system(cmd: List[str], exit_on_error: bool = True) -> str:
         return check_output(cmd, stderr=PIPE).decode()
     except CalledProcessError as e:
         stderr.buffer.write(e.stderr)
+        print_stack()
         if exit_on_error:
             exit(e.returncode)
         raise e
