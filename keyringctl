@@ -107,7 +107,7 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
     return sorted(_list, key=alphanum_key)
 
 
-def system(cmd: List[str], exit_on_error: bool = True) -> str:
+def system(cmd: List[str], exit_on_error: bool = False) -> str:
     """Execute a command using check_output
 
     Parameters
@@ -115,7 +115,7 @@ def system(cmd: List[str], exit_on_error: bool = True) -> str:
     cmd: List[str]
         A list of strings to be fed to check_output
     exit_on_error: bool
-        Whether to exit the script when encountering an error (defaults to True)
+        Whether to exit the script when encountering an error (defaults to False)
 
     Raises
     ------
@@ -668,7 +668,7 @@ def keyring_merge(certificates: List[Path], output: Optional[Path] = None, force
         cmd += ["--output", str(output)]
     cmd += [str(cert) for cert in sorted(certificates)]
 
-    return system(cmd, exit_on_error=False)
+    return system(cmd)
 
 
 def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
@@ -720,7 +720,7 @@ def packet_join(packets: List[Path], output: Optional[Path] = None, force: bool 
     packets_str = list(map(lambda path: str(path), packets))
     cmd.extend(packets_str)
     cmd.extend(["--output", str(output)])
-    return system(cmd, exit_on_error=False)
+    return system(cmd)
 
 
 def simplify_user_id(user_id: Uid) -> Uid:
