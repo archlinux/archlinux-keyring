@@ -1067,6 +1067,69 @@ def get_fingerprints(working_dir: Path, decomposed_paths: List[Path]) -> Set[Fin
     return fingerprints
 
 
+def export(
+    working_dir: Path,
+    keyring_root: Path,
+    sources: Optional[List[Path]] = None,
+    output: Optional[Path] = None,
+) -> str:
+    """Export all provided PGP packet files to a single output file
+
+    If sources contains directories, any .asc files below them are considered.
+
+    Parameters
+    ----------
+    working_dir: Path
+        A directory to use for temporary files
+    keyring_root: Path
+        The keyring root directory to look up username shorthand sources
+    sources: Optional[List[Path]]
+        A list of directories or files from which to read PGP packet information (defaults to `keyring_root`)
+    output: Optional[Path]
+        An output file that all PGP packet data is written to, return the result instead if None
+
+    Returns
+    -------
+    str
+        The result if no output file has been used
+    """
+
+    if not sources:
+        sources = [keyring_root]
+
+    # resolve shorthand username exports for packager keys
+    for index, source in enumerate(sources):
+        packager_source = keyring_root / "packager" / source.name
+        if not source.exists() and packager_source.exists():
+            sources[index] = packager_source
+
+    # depth first search certificate paths
+    cert_dirs: Set[Path] = set()
+    visit: List[Path] = sources
+    while visit:
+        path = visit.pop()
+        # this level contains a certificate, abort depth search
+        if list(path.glob("*.asc")):
+            cert_dirs.add(path)
+            continue
+        visit.extend([path for path in path.iterdir() if path.is_dir()])
+
+    temp_dir = Path(mkdtemp(dir=working_dir, prefix="arch-keyringctl-export-join-")).absolute()
+
+    certificates = []
+    for cert_dir in sorted(cert_dirs):
+        cert_path = temp_dir / f"{cert_dir.name}.asc"
+        debug(f"Joining {cert_dir} in {cert_path}")
+        packet_join(
+            packets=sorted(cert_dir.glob("**/*.asc")),
+            output=cert_path,
+            force=True,
+        )
+        certificates.append(cert_path)
+
+    return keyring_merge(certificates, output)
+
+
 def export_keyring(
     working_dir: Path,
     main: List[Path],
@@ -1194,29 +1257,12 @@ if __name__ == "__main__":
         "export",
         help="export a directory structure of PGP packet data to a combined file",
     )
-    export_parser.add_argument("output", type=absolute_path, help="file to write PGP packet data to")
+    export_parser.add_argument("-o", "--output", type=absolute_path, help="file to write PGP packet data to")
     export_parser.add_argument(
-        "-m",
-        "--main",
-        action="append",
-        help="files or directories containing PGP packet data that is trusted (can be provided multiple times)",
-        required=True,
+        "source",
+        nargs="*",
+        help="username or files/directories containing PGP packet data (can be provided multiple times)",
         type=absolute_path,
-    )
-    export_parser.add_argument(
-        "-s",
-        "--source",
-        action="append",
-        help="files or directories containing PGP packet data (can be provided multiple times)",
-        required=True,
-        type=absolute_path,
-    )
-    export_parser.add_argument(
-        "-p",
-        "--pacman-integration",
-        action="store_true",
-        default=False,
-        help="export trusted and revoked files (used by pacman) alongside the keyring",
     )
 
     args = parser.parse_args()
@@ -1257,13 +1303,14 @@ if __name__ == "__main__":
                     pacman_integration=True,
                 )
             elif "export" == args.subcommand:
-                export_keyring(
-                    working_dir=working_dir,
-                    main=args.main,
-                    sources=args.source,
-                    output=args.output,
-                    force=args.force,
-                    pacman_integration=args.pacman_integration,
+                print(
+                    export(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        sources=args.source,
+                        output=args.output,
+                    ),
+                    end="",
                 )
             else:
                 parser.print_help()

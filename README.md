@@ -29,17 +29,34 @@ Import a new packager key by deriving the username from the filename.
 
 Alternatively import a file or directory and override the username
 ```bash
-./keyringctl import --name <username> <file_or_directory>
+./keyringctl import --name <username> <file_or_directory...>
 ```
 
 Updates to existing keys will automatically derive the username from the known fingerprint.
 ```bash
-./keyringctl import <file_or_directory>
+./keyringctl import <file_or_directory...>
 ```
 
 Main key imports support the same options plus a mandatory `--main`
 ```bash
 ./keyringctl import --main <username>.asc
+```
+
+### Export
+
+Export the whole keyring including main and packager to stdout
+```bash
+./keyringctl export
+```
+
+Limit to specific usernames using an output file
+```bash
+./keyringctl export <usernames...> --output <filename>
+```
+
+Only export specific certificate directories in [keyring](keyring)
+```bash
+./keyringctl export <directory...>
 ```
 
 ## Installation
