@@ -643,6 +643,30 @@ def keyring_split(working_dir: Path, keyring: Path) -> Iterable[Path]:
     return keyrings
 
 
+def keyring_merge(certificates: List[Path], output: Optional[Path] = None) -> str:
+    """Merge multiple certificates into a keyring
+
+    Parameters
+    ----------
+    certificates: List[Path]
+        List of paths to certificates to merge into a keyring
+    output: Optional[Path]
+        Path to a file which the keyring is written, return the result instead if None
+
+    Returns
+    -------
+    str
+        The result if no output file has been used
+    """
+
+    cmd = ["sq", "keyring", "merge"]
+    if output:
+        cmd += ["--output", str(output)]
+    cmd += [str(cert) for cert in sorted(certificates)]
+
+    return system(cmd, exit_on_error=False)
+
+
 def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
     """Split a file containing a PGP certificate into separate packet files
 
