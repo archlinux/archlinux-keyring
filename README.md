@@ -78,6 +78,23 @@ Only show a specific main key
 ./keyringctl list --main <usernames...>
 ```
 
+### Inspect
+
+Inspect all certificates in the keyring
+```bash
+./keyringctl inspect
+```
+
+Only inspect a specific main key
+```bash
+./keyringctl inspect --main <usernames...>
+```
+
+Specify directories to inspect a single fingerprint
+```bash
+./keyringctl inspect <directories...>
+```
+
 ## Installation
 
 To install archlinux-keyring system-wide use the included `Makefile`:

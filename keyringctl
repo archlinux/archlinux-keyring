@@ -26,6 +26,7 @@ from sys import exit
 from sys import stderr
 from tempfile import TemporaryDirectory
 from tempfile import mkdtemp
+from tempfile import mkstemp
 from traceback import print_stack
 from typing import Dict
 from typing import List
@@ -723,6 +724,29 @@ def packet_join(packets: List[Path], output: Optional[Path] = None, force: bool 
     return system(cmd)
 
 
+def inspect(packet: Path, certifications: bool = True) -> str:
+    """Inspect PGP packet data and return the result
+
+    Parameters
+    ----------
+    packet: Path
+        Path to a file that contain PGP data
+    certifications: bool
+        Whether to print third-party certifications
+
+    Returns
+    -------
+    str
+        The result of the inspection
+    """
+
+    cmd = ["sq", "inspect"]
+    if certifications:
+        cmd.append("--certifications")
+    cmd.append(str(packet))
+    return system(cmd)
+
+
 def simplify_user_id(user_id: Uid) -> Uid:
     """Simplify the User ID string to contain more filesystem friendly characters
 
@@ -1161,6 +1185,41 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
         print(f"{userdir.name:<{username_length}} {' '.join(certificates)}")
 
 
+def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[List[Path]]) -> str:
+    """Inspect certificates in the keyring and pretty print the data
+
+    If sources contains directories, all certificate below them are considered.
+
+    Parameters
+    ----------
+    working_dir: Path
+        A directory to use for temporary files
+    keyring_root: Path
+        The keyring root directory to look up username shorthand sources
+    sources: Optional[List[Path]]
+        A list of username or files/directories from which to read PGP packet information (defaults to `keyring_root`)
+
+    Returns
+    -------
+    str
+        The result of the inspect
+    """
+
+    if not sources:
+        sources = [keyring_root]
+
+    # resolve shorthand username exports for packager keys
+    for index, source in enumerate(sources):
+        packager_source = keyring_root / "packager" / source.name
+        if not source.exists() and packager_source.exists():
+            sources[index] = packager_source
+
+    keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
+    export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
+
+    return inspect(packet=keyring, certifications=True)
+
+
 def absolute_path(path: str) -> Path:
     """Return the absolute path of a given str
 
@@ -1248,6 +1307,17 @@ if __name__ == "__main__":
         type=absolute_path,
     )
 
+    inspect_parser = subcommands.add_parser(
+        "inspect",
+        help="inspect certificates in the keyring and pretty print the data",
+    )
+    inspect_parser.add_argument(
+        "source",
+        nargs="*",
+        help="username or directories containing certificates",
+        type=absolute_path,
+    )
+
     args = parser.parse_args()
 
     if args.verbose:
@@ -1297,6 +1367,15 @@ if __name__ == "__main__":
                     keyring_root=keyring_root,
                     sources=args.source,
                     main_keys=args.main,
+                )
+            elif "inspect" == args.subcommand:
+                print(
+                    inspect_keyring(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        sources=args.source,
+                    ),
+                    end="",
                 )
             else:
                 parser.print_help()
