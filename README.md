@@ -20,25 +20,25 @@ from the provided data structure and to install it:
 
 ## Usage
 
-Import of a new packager key
+### Import
 
+Import a new packager key by deriving the username from the filename.
 ```bash
 ./keyringctl import <username>.asc
-# alternatively override the username otherwise derived from the filename
-./keyringctl import --name <username> <file>
 ```
 
-Updates to existing packager keys
-
+Alternatively import a file or directory and override the username
 ```bash
-# username is automatically derived from the fingerprint
-./keyringctl import <file_or_directory>...
+./keyringctl import --name <username> <file_or_directory>
 ```
 
-Import of a new main key
-
+Updates to existing keys will automatically derive the username from the known fingerprint.
 ```bash
-# same options as packager key except mandatory --main
+./keyringctl import <file_or_directory>
+```
+
+Main key imports support the same options plus a mandatory `--main`
+```bash
 ./keyringctl import --main <username>.asc
 ```
 
