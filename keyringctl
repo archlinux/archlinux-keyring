@@ -368,7 +368,7 @@ def persist_public_key(
     output_file = key_dir / f"{certificate_fingerprint}.asc"
     output_file.parent.mkdir(parents=True, exist_ok=True)
     debug(f"Writing file {output_file} from {[str(packet) for packet in packets]}")
-    packet_join(packets, output_file)
+    packet_join(packets, output_file, force=True)
 
 
 def persist_uids(
@@ -396,7 +396,7 @@ def persist_uids(
         output_file = key_dir / "uid" / key / f"{key}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {[str(packet) for packet in packets]}")
-        packet_join(packets, output_file)
+        packet_join(packets, output_file, force=True)
 
 
 def persist_subkeys(
@@ -422,7 +422,7 @@ def persist_subkeys(
         output_file = key_dir / "subkey" / fingerprint / f"{fingerprint}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {[str(packet) for packet in packets]}")
-        packet_join(packets=packets, output=output_file)
+        packet_join(packets=packets, output=output_file, force=True)
 
 
 def persist_subkey_revocations(
@@ -444,7 +444,7 @@ def persist_subkey_revocations(
         output_file = key_dir / "subkey" / fingerprint / "revocation" / f"{issuer}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {revocation}")
-        packet_join(packets=[revocation], output=output_file)
+        packet_join(packets=[revocation], output=output_file, force=True)
 
 
 def persist_direct_sigs(
@@ -473,7 +473,7 @@ def persist_direct_sigs(
         output_file = key_dir / sig_type / f"{issuer}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {[str(cert) for cert in certifications]}")
-        packet_join(packets, output_file)
+        packet_join(packets, output_file, force=True)
 
 
 def persist_certifications(
@@ -513,7 +513,7 @@ def persist_certifications(
                 packets = [pubkey, uids[key], uid_binding_sig[key], certification]
                 output_file = certification_dir / f"{issuer}.asc"
                 debug(f"Writing file {output_file} from {certification}")
-                packet_join(packets, output_file)
+                packet_join(packets, output_file, force=True)
             else:
                 error(
                     f"Public key '{pubkey}' does not provide "
@@ -561,7 +561,7 @@ def persist_revocations(
             packets.append(revocation)
             output_file = revocation_dir / f"{issuer}.asc"
             debug(f"Writing file {output_file} from {revocation}")
-            packet_join(packets, output_file)
+            packet_join(packets, output_file, force=True)
 
 
 def packet_dump(packet: Path) -> str:
