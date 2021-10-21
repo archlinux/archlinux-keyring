@@ -835,45 +835,6 @@ def convert(
     return target_dir
 
 
-def temp_join_keys(sources: List[Path], temp_dir: Path, force: bool) -> List[Path]:
-    """Temporarily join the key material of a given set of keys in a temporary location and return their paths
-
-    Parameters
-    ----------
-    sources: List[Path]
-        A list of paths below which PGP packets are found
-    temp_dir: Path
-        The temporary directory below which to join PGP keys
-    force: bool
-        Whether to force the joining of files
-    """
-
-    certs: List[Path] = []
-
-    for source_number, source in enumerate(sources):
-        if source.is_dir():
-            for user_number, user_dir in enumerate(sorted(source.iterdir())):
-                if user_dir.is_dir():
-                    for user_cert_number, user_cert_dir in enumerate(sorted(user_dir.iterdir())):
-                        if user_cert_dir.is_dir():
-                            cert_path = temp_dir / (
-                                f"{str(source_number).zfill(4)}"
-                                f"-{str(user_number).zfill(4)}"
-                                f"-{str(user_cert_number).zfill(4)}.asc"
-                            )
-                            debug(f"Joining {user_dir.name}/{user_cert_dir.name} in {cert_path}.")
-                            packet_join(
-                                packets=sorted(user_cert_dir.glob("**/*.asc")),
-                                output=cert_path,
-                                force=force,
-                            )
-                            certs.append(cert_path)
-        elif source.is_file() and not source.is_symlink():
-            certs.append(source)
-
-    return certs
-
-
 def get_all_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint], List[Fingerprint]]:
     """Get the fingerprints of all public keys and all fingerprints of all (self) revoked public keys in a directory
 
@@ -1131,67 +1092,40 @@ def export(
         )
         certificates.append(cert_path)
 
-    return keyring_merge(certificates, output)
+    return keyring_merge(certificates, output, force=True)
 
 
-def export_keyring(
+def build(
     working_dir: Path,
-    main: List[Path],
-    sources: List[Path],
-    output: Path,
-    force: bool,
-    pacman_integration: bool,
+    keyring_root: Path,
+    target_dir: Path,
 ) -> None:
-    """Export all provided PGP packet files to a single output file
-
-    If sources contains directories, any .asc files below them are considered.
+    """Build keyring PGP artifacts alongside ownertrust and revoked status files
 
     Parameters
     ----------
     working_dir: Path
         A directory to use for temporary files
-    main: List[Path]
-        A list of directories or files from which to read PGP packet information, that is considered as public keys
-        that are used to sign those found in sources
-    sources: List[Path]
-        A list of directories or files from which to read PGP packet information
-    output: Path
-        An output file that all PGP packet data is written to
-    force: bool
-        Whether to force the execution of packet_join()
-    pacman_integration: bool
-        Whether to write pacman compatible trust files
+    keyring_root: Path
+        The keyring root directory to build the artifacts from
+    target_dir: Path
+        Output directory that all artifacts are written to
     """
 
-    main = [source.absolute() for source in main]
-    sources = [source.absolute() for source in sources]
-    output = output.absolute()
+    target_dir.mkdir(parents=True, exist_ok=True)
 
-    main_certs = temp_join_keys(sources=main, temp_dir=Path(mkdtemp(dir=working_dir)).absolute(), force=force)
-    sources_certs = temp_join_keys(sources=sources, temp_dir=Path(mkdtemp(dir=working_dir)).absolute(), force=force)
-    debug(
-        f"Creating keyring {output} from {[str(source_dir) for source_dir in main]} "
-        f"and {[str(source_dir) for source_dir in sources]}."
+    keyring: Path = target_dir / Path("archlinux.gpg")
+    export(working_dir=working_dir, keyring_root=keyring_root, output=keyring)
+
+    [trusted_main_keys, all_main_keys] = export_ownertrust(
+        certs=[keyring_root / "main"],
+        output=target_dir / "archlinux-trusted",
     )
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["sq", "keyring", "merge", "-o", str(output)]
-    if force:
-        cmd.insert(1, "--force")
-    cmd += [str(cert) for cert in sorted(main_certs)]
-    cmd += [str(cert) for cert in sorted(sources_certs)]
-    system(cmd, exit_on_error=False)
-
-    if pacman_integration:
-        [trusted_main_keys, all_main_keys] = export_ownertrust(
-            certs=main,
-            output=Path(f"{str(output).split('.gpg')[0]}-trusted"),
-        )
-        export_revoked(
-            certs=main + sources,
-            main_keys=all_main_keys,
-            output=Path(f"{str(output).split('.gpg')[0]}-revoked"),
-        )
+    export_revoked(
+        certs=[keyring_root / "main", keyring_root / "packager"],
+        main_keys=all_main_keys,
+        output=target_dir / "archlinux-revoked",
+    )
 
 
 def absolute_path(path: str) -> Path:
@@ -1252,11 +1186,6 @@ if __name__ == "__main__":
     )
     import_parser.add_argument("--main", action="store_true", help="Import a main signing key into the keyring")
 
-    export_keyring_parser = subcommands.add_parser(
-        "export-keyring",
-        help="export PGP packet data below main/ and packager/ to output/archlinux.gpg alongside pacman integration",
-    )
-
     export_parser = subcommands.add_parser(
         "export",
         help="export a directory structure of PGP packet data to a combined file",
@@ -1267,6 +1196,11 @@ if __name__ == "__main__":
         nargs="*",
         help="username or files/directories containing PGP packet data (can be provided multiple times)",
         type=absolute_path,
+    )
+
+    build_parser = subcommands.add_parser(
+        "build",
+        help="build keyring PGP artifacts alongside ownertrust and revoked status files",
     )
 
     args = parser.parse_args()
@@ -1297,15 +1231,6 @@ if __name__ == "__main__":
                         ),
                     )
                 )
-            elif "export-keyring" == args.subcommand:
-                export_keyring(
-                    working_dir=working_dir,
-                    main=[keyring_root / "main"],
-                    sources=[keyring_root / "packager"],
-                    output=keyring_root / "output" / "archlinux.gpg",
-                    force=True,
-                    pacman_integration=True,
-                )
             elif "export" == args.subcommand:
                 print(
                     export(
@@ -1315,6 +1240,12 @@ if __name__ == "__main__":
                         output=args.output,
                     ),
                     end="",
+                )
+            elif "build" == args.subcommand:
+                build(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    target_dir=keyring_root.parent / "build",
                 )
             else:
                 parser.print_help()

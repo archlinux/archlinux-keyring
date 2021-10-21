@@ -20,6 +20,13 @@ from the provided data structure and to install it:
 
 ## Usage
 
+### Build
+
+Build all PGP artifacts (keyring, ownertrust, revoked files) to the build directory
+```bash
+./keyringctl build
+```
+
 ### Import
 
 Import a new packager key by deriving the username from the filename.

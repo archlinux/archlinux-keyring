@@ -1,6 +1,6 @@
 PREFIX ?= /usr/local
 KEYRING_TARGET_DIR=$(DESTDIR)$(PREFIX)/share/pacman/keyrings/
-KEYRING_FILES=$(wildcard keyring/output/*.gpg) $(wildcard keyring/output/*-revoked) $(wildcard keyring/output/*-trusted)
+KEYRING_FILES=$(wildcard build/*.gpg) $(wildcard build/*-revoked) $(wildcard build/*-trusted)
 
 all: build
 
@@ -11,7 +11,7 @@ lint:
 	mypy --install-types --non-interactive keyringctl
 
 build:
-	./keyringctl -v export-keyring
+	./keyringctl -v build
 
 install:
 	install -vDm 755 $(KEYRING_FILES) -t $(KEYRING_TARGET_DIR)
