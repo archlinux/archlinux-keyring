@@ -758,7 +758,9 @@ def packet_join(packets: List[Path], output: Optional[Path] = None, force: bool 
     return system(cmd)
 
 
-def inspect(packet: Path, certifications: bool = True) -> str:
+def inspect(
+    packet: Path, certifications: bool = True, fingerprints: Optional[Dict[Fingerprint, Username]] = None
+) -> str:
     """Inspect PGP packet data and return the result
 
     Parameters
@@ -767,6 +769,8 @@ def inspect(packet: Path, certifications: bool = True) -> str:
         Path to a file that contain PGP data
     certifications: bool
         Whether to print third-party certifications
+    fingerprints: Optional[Dict[Fingerprint, Username]]
+        Optional dict of fingerprints to usernames to enrich the output with
 
     Returns
     -------
@@ -778,7 +782,14 @@ def inspect(packet: Path, certifications: bool = True) -> str:
     if certifications:
         cmd.append("--certifications")
     cmd.append(str(packet))
-    return system(cmd)
+    result: str = system(cmd)
+
+    if fingerprints:
+        for fingerprint, username in fingerprints.items():
+            result = sub(f"{fingerprint}", f"{fingerprint} {username}", result)
+            result = sub(f" {fingerprint[24:]}", f" {fingerprint[24:]} {username}", result)
+
+    return result
 
 
 def simplify_user_id(user_id: Uid) -> Uid:
@@ -1010,7 +1021,7 @@ def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path
             trusted_certs_file.write(f"{cert}\n")
 
 
-def get_fingerprints_from_import_source(working_dir: Path, source: List[Path]) -> List[Fingerprint]:
+def get_fingerprints_from_import_source(working_dir: Path, source: List[Path]) -> Dict[Fingerprint, Username]:
     """Get all fingerprints of PGP public keys from import file(s)
 
     Parameters
@@ -1018,28 +1029,28 @@ def get_fingerprints_from_import_source(working_dir: Path, source: List[Path]) -
     working_dir: Path
         A directory to use for temporary files
     source: List[Path]
-        The path to a source file or directory
+        The path to a source file or directory containing keyrings
 
     Returns
     -------
-    List[Fingerprint]
-        A list of strings representing the fingerprints of PGP public keys found in source
+    Dict[Fingerprint, Username]
+        A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
-    fingerprints: List[Fingerprint] = []
+    fingerprints: Dict[Fingerprint, Username] = {}
     keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], source)))
 
     for key in keys:
-        for certificate in keyring_split(working_dir=working_dir, keyring=key):
+        for certificate in keyring_split(working_dir=working_dir, keyring=key, preserve_filename=True):
             for packet in packet_split(working_dir=working_dir, certificate=certificate):
                 if packet.name.endswith("--PublicKey"):
-                    fingerprints += [Fingerprint(packet_dump_field(packet, "Fingerprint"))]
+                    fingerprints[Fingerprint(packet_dump_field(packet, "Fingerprint"))] = Username(certificate.stem)
 
     debug(f"Fingerprints of PGP public keys in {source}: {fingerprints}")
     return fingerprints
 
 
-def get_fingerprints_from_decomposed_dir(path: Path) -> List[Fingerprint]:
+def get_fingerprints_from_decomposed_dir(path: Path) -> Dict[Fingerprint, Username]:
     """Get all fingerprints of PGP public keys from a decomposed directory structure
 
     Parameters
@@ -1049,16 +1060,19 @@ def get_fingerprints_from_decomposed_dir(path: Path) -> List[Fingerprint]:
 
     Returns
     -------
-    List[Fingerprint]
-        A list of strings representing all fingerprints of PGP public keys below path
+    Dict[Fingerprint, Username]
+        A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
-    fingerprints = [Fingerprint(path.stem) for path in list(path.absolute().glob("*/*"))]
+    fingerprints: Dict[Fingerprint, Username] = {}
+    for cert in sorted(get_cert_paths([path])):
+        fingerprints[Fingerprint(cert.name)] = Username(cert.parent.name)
+
     debug(f"Fingerprints of PGP public keys in {path}: {fingerprints}")
     return fingerprints
 
 
-def get_fingerprints(working_dir: Path, decomposed_paths: List[Path]) -> Set[Fingerprint]:
+def get_fingerprints(working_dir: Path, decomposed_paths: List[Path]) -> Dict[Fingerprint, Username]:
     """Get the fingerprints of PGP public keys from input paths and decomposed directory structures
 
 
@@ -1072,10 +1086,10 @@ def get_fingerprints(working_dir: Path, decomposed_paths: List[Path]) -> Set[Fin
     Returns
     -------
     Set[Fingerprint]
-        A set of strings describing fingerprints of PGP public keys
+        A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
-    fingerprints: Set[Fingerprint] = set()
+    fingerprints: Dict[Fingerprint, Username] = {}
 
     fingerprints.update(
         get_fingerprints_from_import_source(
@@ -1241,7 +1255,9 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
     export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
 
-    return inspect(packet=keyring, certifications=True)
+    return inspect(
+        packet=keyring, certifications=True, fingerprints=get_fingerprints_from_decomposed_dir(path=keyring_root)
+    )
 
 
 def absolute_path(path: str) -> Path:
@@ -1364,10 +1380,10 @@ if __name__ == "__main__":
                         source=args.source,
                         target_dir=keyring_root / target_dir,
                         name_override=args.name,
-                        fingerprint_filter=get_fingerprints(
+                        fingerprint_filter=set(get_fingerprints(
                             working_dir=working_dir,
                             decomposed_paths=[keyring_root / "main", keyring_root / "packager"],
-                        ),
+                        ).keys()),
                     )
                 )
             elif "export" == args.subcommand:
