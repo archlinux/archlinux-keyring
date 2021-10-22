@@ -47,8 +47,7 @@ def cwd(new_dir: Path) -> Iterator[None]:
 
     Parameters
     ----------
-    new_dir: Path
-        A path to change to
+    new_dir: A path to change to
     """
 
     previous_dir = getcwd()
@@ -64,13 +63,11 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
 
     Parameters
     ----------
-    _list: Iterable[Path]
-        An iterable containing paths to be sorted
+    _list: An iterable containing paths to be sorted
 
     Return
     ------
-    Iterable[Path]
-        An Iterable of paths that are naturally sorted
+    An Iterable of paths that are naturally sorted
     """
 
     def convert_text_chunk(text: str) -> Union[int, str]:
@@ -78,13 +75,11 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
 
         Parameters
         ----------
-        text: str
-            An input string
+        text: An input string
 
         Returns
         -------
-        Union[int, str]
-            Either an integer if text is a digit, else text in lower-case representation
+        Either an integer if text is a digit, else text in lower-case representation
         """
 
         return int(text) if text.isdigit() else text.lower()
@@ -94,13 +89,11 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
 
         Parameters
         ----------
-        key: Path
-            A path for which to create a key
+        key: A path for which to create a key
 
         Returns
         -------
-        List[Union[int, str]]
-            A list of either int or str objects that may serve as 'key' argument for sorted()
+        A list of either int or str objects that may serve as 'key' argument for sorted()
         """
 
         return [convert_text_chunk(c) for c in split("([0-9]+)", str(key.name))]
@@ -113,20 +106,16 @@ def system(cmd: List[str], exit_on_error: bool = False) -> str:
 
     Parameters
     ----------
-    cmd: List[str]
-        A list of strings to be fed to check_output
-    exit_on_error: bool
-        Whether to exit the script when encountering an error (defaults to False)
+    cmd: A list of strings to be fed to check_output
+    exit_on_error: Whether to exit the script when encountering an error (defaults to False)
 
     Raises
     ------
-    CalledProcessError
-        If not exit_on_error and `check_output()` encounters an error
+    CalledProcessError: If not exit_on_error and `check_output()` encounters an error
 
     Returns
     -------
-    str
-        The output of cmd
+    The output of cmd
     """
 
     try:
@@ -144,13 +133,11 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
 
     Parameters
     ----------
-    paths: Iterable[Path]
-        A list of paths to walk and resolve to certificate paths.
+    paths: A list of paths to walk and resolve to certificate paths.
 
     Returns
     -------
-    List[Path]
-        The list of paths to certificates
+    The list of paths to certificates
     """
 
     # depth first search certificate paths
@@ -183,27 +170,19 @@ def convert_certificate(  # noqa: ignore=C901
 
     Parameters
     ----------
-    working_dir: Path
-        The path of the working directory below which to create split certificates
-    certificate: Path
-        The path to a public key certificate
-    keyring_dir: Path
-        The path of the keyring used to try to derive the username from the public key fingerprint
-    name_override: Optional[Username]
-        An optional string to override the username in the to be created output directory structure
-    fingerprint_filter: Optional[Set[Fingerprint]]
-        An optional list of strings defining fingerprints of PGP public keys that all certificates will be filtered
-        with
+    working_dir: The path of the working directory below which to create split certificates
+    certificate: The path to a public key certificate
+    keyring_dir: The path of the keyring used to try to derive the username from the public key fingerprint
+    name_override: An optional string to override the username in the to be created output directory structure
+    fingerprint_filter: Optional list of fingerprints of PGP public keys that all certifications will be filtered with
 
     Raises
     ------
-    Exception
-        If required PGP packets are not found
+    Exception: If required PGP packets are not found
 
     Returns
     -------
-    Path
-        The path of the user_dir (which is located below working_dir)
+    The path of the user_dir (which is located below working_dir)
     """
 
     # root packets
@@ -383,12 +362,9 @@ def persist_public_key(
 
     Parameters
     ----------
-    certificate_fingerprint: Fingerprint
-        The unique fingerprint of the public key
-    pubkey: Path
-        The path to the public key of the root key
-    key_dir: Path
-        The root directory below which the basic key material is persisted
+    certificate_fingerprint: The unique fingerprint of the public key
+    pubkey: The path to the public key of the root key
+    key_dir: The root directory below which the basic key material is persisted
     """
 
     packets: List[Path] = [pubkey]
@@ -410,12 +386,9 @@ def persist_uids(
 
     Parameters
     ----------
-    key_dir: Path
-        The root directory below which the basic key material is persisted
-    uid_binding_sigs: Dict[Uid, Path]
-        The PositiveCertifications of a User ID and Public-Key packet
-    uids: Dict[Uid, Path]
-        The User IDs of a Public-Key (the root key)
+    key_dir: The root directory below which the basic key material is persisted
+    uid_binding_sigs: The PositiveCertifications of a User ID and Public-Key packet
+    uids: The User IDs of a Public-Key (the root key)
     """
 
     for key in uid_binding_sigs.keys():
@@ -435,12 +408,9 @@ def persist_subkeys(
 
     Parameters
     ----------
-    key_dir: Path
-        The root directory below which the basic key material is persisted
-    subkeys: Dict[Fingerprint, Path]
-        The PublicSubkeys of a key
-    subkey_binding_sigs: Dict[Fingerprint, Path]
-        The SubkeyBinding signatures of a Public-Key (the root key)
+    key_dir: The root directory below which the basic key material is persisted
+    subkeys: The PublicSubkeys of a key
+    subkey_binding_sigs: The SubkeyBinding signatures of a Public-Key (the root key)
     """
 
     for fingerprint, subkey in subkeys.items():
@@ -460,10 +430,8 @@ def persist_subkey_revocations(
 
     Parameters
     ----------
-    key_dir: Path
-        The root directory below which the basic key material is persisted
-    subkey_revocations: Dict[Fingerprint, Path]
-        The SubkeyRevocations of PublicSubkeys of a key
+    key_dir: The root directory below which the basic key material is persisted
+    subkey_revocations: The SubkeyRevocations of PublicSubkeys of a key
     """
 
     for fingerprint, revocation in subkey_revocations.items():
@@ -485,14 +453,10 @@ def persist_direct_sigs(
 
     Parameters
     ----------
-    direct_sigs: Dict[Fingerprint, List[Path]]
-        The direct sigs to write to file
-    pubkey: Path
-        The path to the public key of the root key
-    key_dir: Path
-        The root directory below which the Directkeys are persisted
-    sig_type: str
-        The type of direct certification to persist (defaults to 'certification'). This influences the directory name
+    direct_sigs: The direct sigs to write to file
+    pubkey: The path to the public key of the root key
+    key_dir: The root directory below which the Directkeys are persisted
+    sig_type: The type of direct certification to persist (defaults to 'certification').
     """
 
     for issuer, certifications in direct_sigs.items():
@@ -518,16 +482,11 @@ def persist_certifications(
 
     Parameters
     ----------
-    certifications: Dict[Uid, List[Path]]
-        The certifications to write to file
-    pubkey: Path
-        The path to the public key of the root key
-    key_dir: Path
-        The root directory below which certifications are persisted
-    uid_binding_sig: Dict[Uid, Path]
-        The PositiveCertifications of a User ID and Public-Key packet
-    uids: Dict[Uid, Path]
-        The User IDs of a Public-Key (the root key)
+    certifications: The certifications to write to file
+    pubkey: The path to the public key of the root key
+    key_dir: The root directory below which certifications are persisted
+    uid_binding_sig: The PositiveCertifications of a User ID and Public-Key packet
+    uids: The User IDs of a Public-Key (the root key)
     """
 
     for key, current_certifications in certifications.items():
@@ -563,16 +522,11 @@ def persist_revocations(
 
     Parameters
     ----------
-    pubkey: Path
-        The path to the public key of the root key
-    revocations: Dict[Uid, List[Path]]
-        The revocations to write to file
-    key_dir: Path
-        The root directory below which revocations will be persisted
-    uid_binding_sig: Dict[Uid, Path]
-        The PositiveCertifications of a User ID and Public-Key packet
-    uids: Dict[Uid, Path]
-        The User IDs of a Public-Key (the root key)
+    pubkey: The path to the public key of the root key
+    revocations: The revocations to write to file
+    key_dir: The root directory below which revocations will be persisted
+    uid_binding_sig: The PositiveCertifications of a User ID and Public-Key packet
+    uids: The User IDs of a Public-Key (the root key)
     """
 
     for key, current_revocations in revocations.items():
@@ -598,13 +552,11 @@ def packet_dump(packet: Path) -> str:
 
     Parameters
     ----------
-    packet: Path
-        The path to the PGP packet to retrieve the value from
+    packet: The path to the PGP packet to retrieve the value from
 
     Returns
     -------
-    str
-        The contents of the packet dump
+    The contents of the packet dump
     """
 
     return system(["sq", "packet", "dump", str(packet)])
@@ -615,20 +567,16 @@ def packet_dump_field(packet: Path, field: str) -> str:
 
     Parameters
     ----------
-    packet: Path
-        The path to the PGP packet to retrieve the value from
-    field: str
-        The name of the field
+    packet: The path to the PGP packet to retrieve the value from
+    field: The name of the field
 
     Raises
     ------
-    Exception
-        If the field is not found in the PGP packet
+    Exception: If the field is not found in the PGP packet
 
     Returns
     -------
-    str
-        The value of the field found in packet
+    The value of the field found in packet
     """
 
     dump = packet_dump(packet)
@@ -650,17 +598,13 @@ def keyring_split(working_dir: Path, keyring: Path, preserve_filename: bool = Fa
 
     Parameters
     ----------
-    working_dir: Path
-        The path of the working directory below which to create the output files
-    keyring: Path
-        The path of a file containing a PGP keyring
-    preserve_filename: bool
-        If True, all keyrings are placed into separate directories while preserving the filename
+    working_dir: The path of the working directory below which to create the output files
+    keyring: The path of a file containing a PGP keyring
+    preserve_filename: If True, all keyrings are placed into separate directories while preserving the filename
 
     Returns
     -------
-    Iterable[Path]
-        An iterable over the naturally sorted list of certificate files derived from a keyring
+    An iterable over the naturally sorted list of certificate files derived from a keyring
     """
 
     keyring_dir = Path(mkdtemp(dir=working_dir, prefix="keyring-")).absolute()
@@ -683,17 +627,13 @@ def keyring_merge(certificates: List[Path], output: Optional[Path] = None, force
 
     Parameters
     ----------
-    certificates: List[Path]
-        List of paths to certificates to merge into a keyring
-    output: Optional[Path]
-        Path to a file which the keyring is written, return the result instead if None
-    force: bool
-        Whether to force overwriting existing files (defaults to False)
+    certificates: List of paths to certificates to merge into a keyring
+    output: Path to a file which the keyring is written, return the result instead if None
+    force: Whether to force overwriting existing files (defaults to False)
 
     Returns
     -------
-    str
-        The result if no output file has been used
+    The result if no output file has been used
     """
 
     cmd = ["sq", "keyring", "merge"]
@@ -713,15 +653,12 @@ def packet_split(working_dir: Path, certificate: Path) -> Iterable[Path]:
 
     Parameters
     ----------
-    working_dir: Path
-        The path of the working directory below which to create the output files
-    certificate: Path
-        The absolute path of a file containing one PGP certificate
+    working_dir: The path of the working directory below which to create the output files
+    certificate: The absolute path of a file containing one PGP certificate
 
     Returns
     -------
-    Iterable[Path]
-        An iterable over the naturally sorted list of packet files derived from certificate
+    An iterable over the naturally sorted list of packet files derived from certificate
     """
 
     packet_dir = Path(mkdtemp(dir=working_dir, prefix="packet-")).absolute()
@@ -736,17 +673,13 @@ def packet_join(packets: List[Path], output: Optional[Path] = None, force: bool 
 
     Parameters
     ----------
-    packets: List[Path]
-        A list of paths to files that contain PGP packet data
-    output: Optional[Path]
-        Path to a file to which all PGP packet data is written, return the result instead if None
-    force: bool
-        Whether to force overwriting existing files (defaults to False)
+    packets: A list of paths to files that contain PGP packet data
+    output: Path to a file to which all PGP packet data is written, return the result instead if None
+    force: Whether to force overwriting existing files (defaults to False)
 
     Returns
     -------
-    str
-        The result if no output file has been used
+    The result if no output file has been used
     """
 
     cmd = ["sq", "packet", "join"]
@@ -765,17 +698,13 @@ def inspect(
 
     Parameters
     ----------
-    packet: Path
-        Path to a file that contain PGP data
-    certifications: bool
-        Whether to print third-party certifications
-    fingerprints: Optional[Dict[Fingerprint, Username]]
-        Optional dict of fingerprints to usernames to enrich the output with
+    packet: Path to a file that contain PGP data
+    certifications: Whether to print third-party certifications
+    fingerprints: Optional dict of fingerprints to usernames to enrich the output with
 
     Returns
     -------
-    str
-        The result of the inspection
+    The result of the inspection
     """
 
     cmd = ["sq", "inspect"]
@@ -797,13 +726,11 @@ def simplify_user_id(user_id: Uid) -> Uid:
 
     Parameters
     ----------
-    user_id: Uid
-        A User ID string (e.g. 'Foobar McFooface <foobar@foo.face>')
+    user_id: A User ID string (e.g. 'Foobar McFooface <foobar@foo.face>')
 
     Returns
     -------
-    Uid
-        The simplified representation of user_id
+    The simplified representation of user_id
     """
 
     user_id_str: str = user_id.replace("@", "_at_")
@@ -817,20 +744,16 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
 
     Parameters
     ----------
-    keyring_dir: Path
-        The directory in which to look up a username
-    certificate_fingerprint: Fingerprint
-        The public key fingerprint to derive the username from
+    keyring_dir: The directory in which to look up a username
+    certificate_fingerprint: The public key fingerprint to derive the username from
 
     Raises
     ------
-    Exception
-        If more than one username is found (a public key can only belong to one individual)
+    Exception: If more than one username is found (a public key can only belong to one individual)
 
     Returns
     -------
-    Optional[Username]
-        A string representing the username a public key certificate belongs to, None otherwise
+    A string representing the username a public key certificate belongs to, None otherwise
     """
 
     matches = list(keyring_dir.glob(f"*/*{certificate_fingerprint}"))
@@ -865,21 +788,15 @@ def convert(
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    keyring_root: Path
-        The keyring root directory to look up accepted fingerprints for certifications
-    source: Iterable[Path]
-        A path to a file or directory to decompose
-    target_dir: Path
-        A directory path to write the new directory structure to
-    name_override: Optional[Username]
-        An optional username override for the call to `convert_certificate()`
+    working_dir: A directory to use for temporary files
+    keyring_root: The keyring root directory to look up accepted fingerprints for certifications
+    source: A path to a file or directory to decompose
+    target_dir: A directory path to write the new directory structure to
+    name_override: An optional username override for the call to `convert_certificate()`
 
     Returns
     -------
-    Path
-        The directory that contains the resulting directory structure (target_dir)
+    The directory that contains the resulting directory structure (target_dir)
     """
 
     directories: List[Path] = []
@@ -917,14 +834,12 @@ def get_trusted_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint],
 
     Parameters
     ----------
-    certs: List[Path]
-        The certificates to trust
+    certs: The certificates to trust
 
     Returns
     -------
-    Tuple[List[str], List[str]]
-        A tuple with the first item containing the fingerprints of all public keys and the second item containing the
-        fingerprints of all self-revoked public keys
+    A tuple with the first item containing the fingerprints of all public keys and the second item containing the
+    fingerprints of all self-revoked public keys
     """
 
     all_certs: List[Fingerprint] = []
@@ -957,10 +872,8 @@ def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint
 
     Parameters
     ----------
-    certs: List[Path]
-        The certificates to trust
-    output: Path
-        The file path to write to
+    certs: The certificates to trust
+    output: The file path to write to
     """
 
     trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
@@ -983,15 +896,11 @@ def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path
 
     Parameters
     ----------
-    certs: List[Path]
-        A list of directories with keys to check for their revocation status
-    main_keys: List[Fingerprint]
-        A list of strings representing the fingerprints of (current and/or revoked) main keys
-    output: Path
-        The file path to write to
-    min_revoker: int
-        The minimum amount of revocation certificates on a User ID from any main key to deem a public key as revoked
-        (defaults to 2)
+    certs: A list of directories with keys to check for their revocation status
+    main_keys: A list of strings representing the fingerprints of (current and/or revoked) main keys
+    output: The file path to write to
+    min_revoker: The minimum amount of revocation certificates on a User ID from any main key to deem a public key as
+        revoked
     """
 
     trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
@@ -1026,15 +935,12 @@ def get_fingerprints_from_keyring_files(working_dir: Path, source: Iterable[Path
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    source: Interable[Path]
-        The path to a source file or directory containing keyrings
+    working_dir: A directory to use for temporary files
+    source: The path to a source file or directory containing keyrings
 
     Returns
     -------
-    Dict[Fingerprint, Username]
-        A dict of all fingerprints and their usernames of PGP public keys below path
+    A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
     fingerprints: Dict[Fingerprint, Username] = {}
@@ -1055,13 +961,11 @@ def get_fingerprints_from_certificate_directory(paths: List[Path]) -> Dict[Finge
 
     Parameters
     ----------
-    paths: List[Path]
-        The path to a decomposed directory structure
+    paths: The path to a decomposed directory structure
 
     Returns
     -------
-    Dict[Fingerprint, Username]
-        A dict of all fingerprints and their usernames of PGP public keys below path
+    A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
     fingerprints: Dict[Fingerprint, Username] = {}
@@ -1075,20 +979,15 @@ def get_fingerprints_from_certificate_directory(paths: List[Path]) -> Dict[Finge
 def get_fingerprints(working_dir: Path, sources: Iterable[Path], paths: List[Path]) -> Dict[Fingerprint, Username]:
     """Get the fingerprints of PGP public keys from input paths and decomposed directory structures
 
-
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    sources: Iterable[Path]
-        A list of directories or files from which to read PGP keyring information
-    paths: List[Path]
-        A list of paths that identify decomposed PGP data in directory structures
+    working_dir: A directory to use for temporary files
+    sources: A list of directories or files from which to read PGP keyring information
+    paths: A list of paths that identify decomposed PGP data in directory structures
 
     Returns
     -------
-    Set[Fingerprint]
-        A dict of all fingerprints and their usernames of PGP public keys below path
+    A dict of all fingerprints and their usernames of PGP public keys below path
     """
 
     fingerprints: Dict[Fingerprint, Username] = {}
@@ -1117,19 +1016,14 @@ def export(
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    keyring_root: Path
-        The keyring root directory to look up username shorthand sources
-    sources: Optional[List[Path]]
-        A list of directories or files from which to read PGP packet information (defaults to `keyring_root`)
-    output: Optional[Path]
-        An output file that all PGP packet data is written to, return the result instead if None
+    working_dir: A directory to use for temporary files
+    keyring_root: The keyring root directory to look up username shorthand sources
+    sources: A list of directories or files from which to read PGP packet information (defaults to `keyring_root`)
+    output: An output file that all PGP packet data is written to, return the result instead if None
 
     Returns
     -------
-    str
-        The result if no output file has been used
+    The result if no output file has been used
     """
 
     if not sources:
@@ -1167,12 +1061,9 @@ def build(
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    keyring_root: Path
-        The keyring root directory to build the artifacts from
-    target_dir: Path
-        Output directory that all artifacts are written to
+    working_dir: A directory to use for temporary files
+    keyring_root: The keyring root directory to build the artifacts from
+    target_dir: Output directory that all artifacts are written to
     """
 
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -1198,12 +1089,10 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
 
     Parameters
     ----------
-    keyring_root: Path
-        The keyring root directory to look up username shorthand sources
-    sources: Optional[List[Path]]
-        A list of username or files/directories from which to read PGP packet information (defaults to `keyring_root`)
-    main_keys: bool
-        List main keys instead of packager keys (defaults to False)
+    keyring_root: Path The keyring root directory to look up username shorthand sources
+    sources: A list of username or files/directories from which to read PGP packet information
+        (defaults to `keyring_root`)
+    main_keys: List main keys instead of packager keys (defaults to False)
     """
 
     keyring_dir = keyring_root / ("main" if main_keys else "packager")
@@ -1231,17 +1120,14 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
 
     Parameters
     ----------
-    working_dir: Path
-        A directory to use for temporary files
-    keyring_root: Path
-        The keyring root directory to look up username shorthand sources
-    sources: Optional[List[Path]]
-        A list of username or files/directories from which to read PGP packet information (defaults to `keyring_root`)
+    working_dir: A directory to use for temporary files
+    keyring_root: The keyring root directory to look up username shorthand sources
+    sources: A list of username or files/directories from which to read PGP packet information
+        (defaults to `keyring_root`)
 
     Returns
     -------
-    str
-        The result of the inspect
+    The result of the inspect
     """
 
     if not sources:
@@ -1257,7 +1143,9 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
 
     return inspect(
-        packet=keyring, certifications=True, fingerprints=get_fingerprints_from_certificate_directory(paths=[keyring_root])
+        packet=keyring,
+        certifications=True,
+        fingerprints=get_fingerprints_from_certificate_directory(paths=[keyring_root]),
     )
 
 
@@ -1266,13 +1154,11 @@ def absolute_path(path: str) -> Path:
 
     Parameters
     ----------
-    path: str
-        A string representing a path
+    path: A string representing a path
 
     Returns
     -------
-    Path
-        The absolute path representation of path
+    The absolute path representation of path
     """
 
     return Path(path).absolute()
