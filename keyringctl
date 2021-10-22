@@ -904,8 +904,8 @@ def convert(
     return target_dir
 
 
-def get_all_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint], List[Fingerprint]]:
-    """Get the fingerprints of all public keys and all fingerprints of all (self) revoked public keys in a directory
+def get_trusted_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint], List[Fingerprint]]:
+    """Get the fingerprints of all trusted and all self revoked public keys in a directory
 
     Parameters
     ----------
@@ -919,29 +919,28 @@ def get_all_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint], Lis
         fingerprints of all self-revoked public keys
     """
 
-    all_fingerprints: List[Fingerprint] = []
-    revoked_fingerprints: List[Fingerprint] = []
+    all_certs: List[Fingerprint] = []
+    revoked_certs: List[Fingerprint] = []
 
     # TODO: what about direct key revocations/signatures?
 
-    debug(f"Retrieving all and self-revoked certificates from {[str(cert_dir) for cert_dir in certs]}")
-    for cert_collection in certs:
-        if cert_collection.is_dir():
-            for user_dir in cert_collection.iterdir():
-                if user_dir.is_dir():
-                    for cert_dir in user_dir.iterdir():
-                        cert_fingerprint = Fingerprint(cert_dir.stem)
-                        all_fingerprints.append(cert_fingerprint)
-                        for revocation_cert in cert_dir.glob("revocation/*.asc"):
-                            if cert_fingerprint.endswith(revocation_cert.stem):
-                                debug(f"Revoking {cert_fingerprint} due to self-revocation")
-                                revoked_fingerprints.append(cert_fingerprint)
+    debug(f"Retrieving trusted and self-revoked certificates from {[str(cert_dir) for cert_dir in certs]}")
 
-    return all_fingerprints, revoked_fingerprints
+    for cert_dir in sorted(get_cert_paths(certs)):
+        cert_fingerprint = Fingerprint(cert_dir.stem)
+        all_certs.append(cert_fingerprint)
+        for revocation_cert in cert_dir.glob("revocation/*.asc"):
+            if cert_fingerprint.endswith(revocation_cert.stem):
+                debug(f"Revoking {cert_fingerprint} due to self-revocation")
+                revoked_certs.append(cert_fingerprint)
+
+    trusted_keys = [cert for cert in all_certs if cert not in revoked_certs]
+
+    return trusted_keys, revoked_certs
 
 
 def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint], List[Fingerprint]]:
-    """Export ownertrust from a set of keys
+    """Export ownertrust from a set of keys and return the trusted and revoked fingerprints
 
     The output file format is compatible with `gpg --import-ownertrust` and lists the main fingerprint ID of all
     non-revoked keys as fully trusted.
@@ -956,15 +955,14 @@ def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint
         The file path to write to
     """
 
-    all_certs, revoked_certs = get_all_and_revoked_certs(certs=certs)
-    trusted_certs = [cert for cert in all_certs if cert not in revoked_certs]
+    trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
 
     with open(file=output, mode="w") as trusted_certs_file:
-        for cert in trusted_certs:
+        for cert in sorted(set(trusted_certs)):
             debug(f"Writing {cert} to {output}")
             trusted_certs_file.write(f"{cert}:4:\n")
 
-    return trusted_certs, all_certs
+    return trusted_certs, revoked_certs
 
 
 def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path, min_revoker: int = 2) -> None:
@@ -988,35 +986,30 @@ def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path
         (defaults to 2)
     """
 
-    all_certs, revoked_certs = get_all_and_revoked_certs(certs=certs)
+    trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
 
     debug(f"Retrieving certificates revoked by main keys from {[str(cert_dir) for cert_dir in certs]}")
-    foreign_revocations: Dict[str, List[str]] = {}
-    for cert_collection in certs:
-        if cert_collection.is_dir():
-            for user_dir in cert_collection.iterdir():
-                if user_dir.is_dir():
-                    for cert_dir in user_dir.iterdir():
-                        debug(f"Inspecting public key {cert_dir.name}")
-                        foreign_revocations[cert_dir.stem] = []
-                        for revocation_cert in cert_dir.glob("uid/*/revocation/*.asc"):
-                            foreign_revocations[cert_dir.stem] += [
-                                revocation_cert.stem
-                                for main_key in main_keys
-                                if main_key.endswith(revocation_cert.stem)
-                            ]
+    foreign_revocations: Dict[Fingerprint, Set[Fingerprint]] = defaultdict(set)
+    for cert_dir in sorted(get_cert_paths(certs)):
+        fingerprint = Fingerprint(cert_dir.name)
+        debug(f"Inspecting public key {fingerprint}")
+        for revocation_cert in cert_dir.glob("uid/*/revocation/*.asc"):
+            revocation_fingerprint = Fingerprint(revocation_cert.stem)
+            foreign_revocations[fingerprint].update(
+                [revocation_fingerprint for main_key in main_keys if main_key.endswith(revocation_fingerprint)]
+            )
 
-                        # TODO: find a better (less naive) approach, as this would also match on public certificates,
-                        # where some UIDs are signed and others are revoked
-                        if len(set(foreign_revocations[cert_dir.stem])) >= min_revoker:
-                            debug(
-                                f"Revoking {cert_dir.name} due to {set(foreign_revocations[cert_dir.stem])} "
-                                "being main key revocations"
-                            )
-                            revoked_certs.append(Fingerprint(cert_dir.stem))
+        # TODO: find a better (less naive) approach, as this would also match on public certificates,
+        # where some UIDs are signed and others are revoked
+        if len(foreign_revocations[fingerprint]) >= min_revoker:
+            debug(
+                f"Revoking {cert_dir.name} due to {set(foreign_revocations[fingerprint])} "
+                "being main key revocations"
+            )
+            revoked_certs.append(fingerprint)
 
     with open(file=output, mode="w") as trusted_certs_file:
-        for cert in set(revoked_certs):
+        for cert in sorted(set(revoked_certs)):
             debug(f"Writing {cert} to {output}")
             trusted_certs_file.write(f"{cert}\n")
 
@@ -1179,13 +1172,13 @@ def build(
     keyring: Path = target_dir / Path("archlinux.gpg")
     export(working_dir=working_dir, keyring_root=keyring_root, output=keyring)
 
-    [trusted_main_keys, all_main_keys] = export_ownertrust(
+    [trusted_main_keys, revoked_main_keys] = export_ownertrust(
         certs=[keyring_root / "main"],
         output=target_dir / "archlinux-trusted",
     )
     export_revoked(
-        certs=[keyring_root / "main", keyring_root / "packager"],
-        main_keys=all_main_keys,
+        certs=[keyring_root],
+        main_keys=trusted_main_keys + revoked_main_keys,
         output=target_dir / "archlinux-revoked",
     )
 
