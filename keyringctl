@@ -171,6 +171,42 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
     return cert_paths
 
 
+def transform_username_to_keyring_path(keyring_dir: Path, paths: List[Path]) -> None:
+    """Mutates the input sources by transforming passed usernames to keyring paths
+
+    Parameters
+    ----------
+    keyring_dir: The directory underneath the username needs to exist
+    paths: A list of paths to mutate and replace usernames to keyring paths
+    """
+    for index, source in enumerate(paths):
+        if source.exists():
+            continue
+        packager_source = keyring_dir / source.name
+        if not packager_source.exists():
+            continue
+        paths[index] = packager_source
+
+
+def transform_fingerprint_to_keyring_path(keyring_root: Path, paths: List[Path]) -> None:
+    """Mutates the input sources by transforming passed fingerprints to keyring paths
+
+    Parameters
+    ----------
+    keyring_root: The keyring root directory to look up fingerprints in
+    paths: A list of paths to mutate and replace fingerprints to keyring paths
+    """
+    for index, source in enumerate(paths):
+        if source.exists():
+            continue
+        if not is_pgp_fingerprint(source.name):
+            continue
+        fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
+        if not fingerprint_paths:
+            continue
+        paths[index] = fingerprint_paths[0].parent
+
+
 # TODO: simplify to lower complexity
 def convert_certificate(  # noqa: ignore=C901
     working_dir: Path,
@@ -1027,19 +1063,9 @@ def export(
     if not sources:
         sources = [keyring_root]
 
-    # resolve shorthand username exports for packager keys
-    for index, source in enumerate(sources):
-        if source.exists():
-            continue
-        packager_source = keyring_root / "packager" / source.name
-        if packager_source.exists():
-            sources[index] = packager_source
-            continue
-        if is_pgp_fingerprint(source.name):
-            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
-            if fingerprint_paths:
-                sources[index] = fingerprint_paths[0]
-                continue
+    # transform shorthand paths to actual keyring paths
+    transform_username_to_keyring_path(keyring_dir=keyring_root / "packager", paths=sources)
+    transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
     temp_dir = Path(mkdtemp(dir=working_dir, prefix="arch-keyringctl-export-join-")).absolute()
     cert_paths: Set[Path] = get_cert_paths(sources)
@@ -1095,7 +1121,7 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
 
     Parameters
     ----------
-    keyring_root: Path The keyring root directory to look up username shorthand sources
+    keyring_root: The keyring root directory to look up username shorthand sources
     sources: A list of username, fingerprint or directories from which to read PGP packet information
         (defaults to `keyring_root`)
     main_keys: List main keys instead of packager keys (defaults to False)
@@ -1106,25 +1132,17 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     if not sources:
         sources = list(sorted(keyring_dir.iterdir(), key=lambda path: path.name.casefold()))
 
-    # resolve shorthand username exports for packager keys
-    for index, source in enumerate(sources):
-        if source.exists():
-            continue
-        packager_source = keyring_dir / source.name
-        if packager_source.exists():
-            sources[index] = packager_source
-            continue
-        if is_pgp_fingerprint(source.name):
-            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
-            if fingerprint_paths:
-                sources[index] = fingerprint_paths[0].parent
-                continue
+    # transform shorthand paths to actual keyring paths
+    transform_username_to_keyring_path(keyring_dir=keyring_dir, paths=sources)
+    transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
     username_length = max([len(source.name) for source in sources])
 
-    for userdir in sources:
-        certificates = [cert.name for cert in userdir.iterdir()]
-        print(f"{userdir.name:<{username_length}} {' '.join(certificates)}")
+    for user_path in sources:
+        if is_pgp_fingerprint(user_path.name):
+            user_path = user_path.parent
+        certificates = [cert.name for cert in user_path.iterdir()]
+        print(f"{user_path.name:<{username_length}} {' '.join(certificates)}")
 
 
 def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[List[Path]]) -> str:
@@ -1147,19 +1165,9 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     if not sources:
         sources = [keyring_root]
 
-    # resolve shorthand username exports for packager keys
-    for index, source in enumerate(sources):
-        if source.exists():
-            continue
-        packager_source = keyring_root / "packager" / source.name
-        if packager_source.exists():
-            sources[index] = packager_source
-            continue
-        if is_pgp_fingerprint(source.name):
-            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
-            if fingerprint_paths:
-                sources[index] = fingerprint_paths[0]
-                continue
+    # transform shorthand paths to actual keyring paths
+    transform_username_to_keyring_path(keyring_dir=keyring_root / "packager", paths=sources)
+    transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
     keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
     export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
