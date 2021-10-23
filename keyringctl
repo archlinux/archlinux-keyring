@@ -161,6 +161,8 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
     visit: List[Path] = list(paths)
     while visit:
         path = visit.pop()
+        if not path.exists():
+            continue
         # this level contains a certificate, abort depth search
         if list(path.glob("*.asc")):
             cert_paths.add(path)
