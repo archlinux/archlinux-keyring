@@ -989,12 +989,16 @@ def get_fingerprints_from_keyring_files(working_dir: Path, source: Iterable[Path
     return fingerprints
 
 
-def get_fingerprints_from_certificate_directory(paths: List[Path]) -> Dict[Fingerprint, Username]:
+def get_fingerprints_from_certificate_directory(
+    paths: List[Path], prefix: str = "", postfix: str = ""
+) -> Dict[Fingerprint, Username]:
     """Get all fingerprints of PGP public keys from decomposed directory structures
 
     Parameters
     ----------
     paths: The path to a decomposed directory structure
+    prefix: Prefix to add to each username
+    postfix: Postfix to add to each username
 
     Returns
     -------
@@ -1003,7 +1007,7 @@ def get_fingerprints_from_certificate_directory(paths: List[Path]) -> Dict[Finge
 
     fingerprints: Dict[Fingerprint, Username] = {}
     for cert in sorted(get_cert_paths(paths)):
-        fingerprints[Fingerprint(cert.name)] = Username(cert.parent.name)
+        fingerprints[Fingerprint(cert.name)] = Username(f"{prefix}{cert.parent.name}{postfix}")
 
     debug(f"Fingerprints of PGP public keys in {paths}: {fingerprints}")
     return fingerprints
@@ -1172,10 +1176,14 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
     export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
 
+    fingerprints: Dict[Fingerprint, Username] = get_fingerprints_from_certificate_directory(
+        paths=[keyring_root / "packager"]
+    ) | get_fingerprints_from_certificate_directory(paths=[keyring_root / "main"], postfix=" (main)")
+
     return inspect(
         packet=keyring,
         certifications=True,
-        fingerprints=get_fingerprints_from_certificate_directory(paths=[keyring_root]),
+        fingerprints=fingerprints,
     )
 
 
