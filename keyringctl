@@ -1102,7 +1102,7 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     keyring_dir = keyring_root / ("main" if main_keys else "packager")
 
     if not sources:
-        sources = list(keyring_dir.iterdir())
+        sources = list(sorted(keyring_dir.iterdir(), key=lambda path: path.name.casefold()))
 
     # resolve shorthand username exports for packager keys
     for index, source in enumerate(sources):
