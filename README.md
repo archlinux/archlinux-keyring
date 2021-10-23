@@ -56,14 +56,9 @@ Export the whole keyring including main and packager to stdout
 ./keyringctl export
 ```
 
-Limit to specific usernames using an output file
+Limit to specific certs using an output file
 ```bash
-./keyringctl export <usernames...> --output <filename>
-```
-
-Only export specific certificate directories in [keyring](keyring)
-```bash
-./keyringctl export <directory...>
+./keyringctl export <username_or_fingerprint_or_directory...> --output <filename>
 ```
 
 ### List
@@ -75,7 +70,7 @@ List all certificates in the keyring
 
 Only show a specific main key
 ```bash
-./keyringctl list --main <usernames...>
+./keyringctl list --main <username_or_fingerprint...>
 ```
 
 ### Inspect
@@ -87,12 +82,7 @@ Inspect all certificates in the keyring
 
 Only inspect a specific main key
 ```bash
-./keyringctl inspect --main <usernames...>
-```
-
-Specify directories to inspect a single fingerprint
-```bash
-./keyringctl inspect <directories...>
+./keyringctl inspect --main <username_or_fingerprint_or_directory...>
 ```
 
 ## Installation

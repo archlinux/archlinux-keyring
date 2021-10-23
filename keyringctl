@@ -16,6 +16,7 @@ from os import chdir
 from os import getcwd
 from pathlib import Path
 from re import escape
+from re import match
 from re import split
 from re import sub
 from shutil import copytree
@@ -126,6 +127,22 @@ def system(cmd: List[str], exit_on_error: bool = False) -> str:
         if exit_on_error:
             exit(e.returncode)
         raise e
+
+
+def is_pgp_fingerprint(string: str) -> bool:
+    """Returns whether the passed string looks like a PGP (long) fingerprint
+
+    Parameters
+    ----------
+    string: Input to consider as a fingerprint
+
+    Returns
+    -------
+    RWhether string is a fingerprint
+    """
+    if len(string) not in [16, 40]:
+        return False
+    return match("^[A-F0-9]+$", string) is not None
 
 
 def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
@@ -1018,7 +1035,8 @@ def export(
     ----------
     working_dir: A directory to use for temporary files
     keyring_root: The keyring root directory to look up username shorthand sources
-    sources: A list of directories or files from which to read PGP packet information (defaults to `keyring_root`)
+    sources: A list of username, fingerprint or directories from which to read PGP packet information
+        (defaults to `keyring_root`)
     output: An output file that all PGP packet data is written to, return the result instead if None
 
     Returns
@@ -1031,9 +1049,17 @@ def export(
 
     # resolve shorthand username exports for packager keys
     for index, source in enumerate(sources):
+        if source.exists():
+            continue
         packager_source = keyring_root / "packager" / source.name
-        if not source.exists() and packager_source.exists():
+        if packager_source.exists():
             sources[index] = packager_source
+            continue
+        if is_pgp_fingerprint(source.name):
+            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
+            if fingerprint_paths:
+                sources[index] = fingerprint_paths[0]
+                continue
 
     temp_dir = Path(mkdtemp(dir=working_dir, prefix="arch-keyringctl-export-join-")).absolute()
     cert_paths: Set[Path] = get_cert_paths(sources)
@@ -1090,7 +1116,7 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     Parameters
     ----------
     keyring_root: Path The keyring root directory to look up username shorthand sources
-    sources: A list of username or files/directories from which to read PGP packet information
+    sources: A list of username, fingerprint or directories from which to read PGP packet information
         (defaults to `keyring_root`)
     main_keys: List main keys instead of packager keys (defaults to False)
     """
@@ -1102,9 +1128,17 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
 
     # resolve shorthand username exports for packager keys
     for index, source in enumerate(sources):
+        if source.exists():
+            continue
         packager_source = keyring_dir / source.name
-        if not source.exists() and packager_source.exists():
+        if packager_source.exists():
             sources[index] = packager_source
+            continue
+        if is_pgp_fingerprint(source.name):
+            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
+            if fingerprint_paths:
+                sources[index] = fingerprint_paths[0].parent
+                continue
 
     username_length = max([len(source.name) for source in sources])
 
@@ -1122,7 +1156,7 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     ----------
     working_dir: A directory to use for temporary files
     keyring_root: The keyring root directory to look up username shorthand sources
-    sources: A list of username or files/directories from which to read PGP packet information
+    sources: A list of username, fingerprint or directories from which to read PGP packet information
         (defaults to `keyring_root`)
 
     Returns
@@ -1135,9 +1169,17 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
 
     # resolve shorthand username exports for packager keys
     for index, source in enumerate(sources):
+        if source.exists():
+            continue
         packager_source = keyring_root / "packager" / source.name
-        if not source.exists() and packager_source.exists():
+        if packager_source.exists():
             sources[index] = packager_source
+            continue
+        if is_pgp_fingerprint(source.name):
+            fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
+            if fingerprint_paths:
+                sources[index] = fingerprint_paths[0]
+                continue
 
     keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
     export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
@@ -1213,7 +1255,7 @@ if __name__ == "__main__":
     export_parser.add_argument(
         "source",
         nargs="*",
-        help="username or files/directories containing PGP packet data (can be provided multiple times)",
+        help="username, fingerprint or directories containing certificates",
         type=absolute_path,
     )
 
@@ -1230,7 +1272,7 @@ if __name__ == "__main__":
     list_parser.add_argument(
         "source",
         nargs="*",
-        help="username or files/directories containing certificates (can be provided multiple times)",
+        help="username, fingerprint or directories containing certificates",
         type=absolute_path,
     )
 
@@ -1241,7 +1283,7 @@ if __name__ == "__main__":
     inspect_parser.add_argument(
         "source",
         nargs="*",
-        help="username or directories containing certificates",
+        help="username, fingerprint or directories containing certificates",
         type=absolute_path,
     )
 
