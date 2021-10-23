@@ -11,7 +11,6 @@ from itertools import chain
 from logging import DEBUG
 from logging import basicConfig
 from logging import debug
-from logging import error
 from os import chdir
 from os import getcwd
 from pathlib import Path
@@ -321,10 +320,14 @@ def convert_certificate(  # noqa: ignore=C901
         key_dir=key_dir,
     )
 
-    persist_uids(
+    persist_direct_key_certifications(
+        direct_key_certifications=direct_sigs,
         key_dir=key_dir,
-        uid_binding_sigs=uid_binding_sigs,
-        uids=uids,
+    )
+
+    persist_direct_key_revocations(
+        direct_key_revocations=direct_revocations,
+        key_dir=key_dir,
     )
 
     persist_subkeys(
@@ -338,33 +341,20 @@ def convert_certificate(  # noqa: ignore=C901
         subkey_revocations=subkey_revocations,
     )
 
-    persist_direct_sigs(
-        direct_sigs=direct_sigs,
-        pubkey=pubkey,
+    persist_uids(
         key_dir=key_dir,
-    )
-
-    persist_direct_sigs(
-        direct_sigs=direct_revocations,
-        pubkey=pubkey,
-        key_dir=key_dir,
-        sig_type="revocation",
-    )
-
-    persist_certifications(
-        certifications=certifications,
-        pubkey=pubkey,
-        key_dir=key_dir,
-        uid_binding_sig=uid_binding_sigs,
+        uid_binding_sigs=uid_binding_sigs,
         uids=uids,
     )
 
-    persist_revocations(
-        pubkey=pubkey,
+    persist_uid_certifications(
+        certifications=certifications,
+        key_dir=key_dir,
+    )
+
+    persist_uid_revocations(
         revocations=revocations,
         key_dir=key_dir,
-        uid_binding_sig=uid_binding_sigs,
-        uids=uids,
     )
 
     return user_dir
@@ -398,13 +388,13 @@ def persist_uids(
 ) -> None:
     """Persist the User IDs that belong to a PublicKey
 
-    The User ID material consists of PublicSubkeys and their SubkeyBindings.
+    The User ID material consists of a User ID Packet and a binding signature.
     The files are written to a UID specific directory and file below key_dir/uid.
 
     Parameters
     ----------
     key_dir: The root directory below which the basic key material is persisted
-    uid_binding_sigs: The PositiveCertifications of a User ID and Public-Key packet
+    uid_binding_sigs: The PositiveCertifications of a User ID
     uids: The User IDs of a Public-Key (the root key)
     """
 
@@ -431,8 +421,7 @@ def persist_subkeys(
     """
 
     for fingerprint, subkey in subkeys.items():
-        packets: List[Path] = []
-        packets.extend([subkey, subkey_binding_sigs[fingerprint]])
+        packets: List[Path] = [subkey, subkey_binding_sigs[fingerprint]]
         output_file = key_dir / "subkey" / fingerprint / f"{fingerprint}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {[str(packet) for packet in packets]}")
@@ -459,37 +448,48 @@ def persist_subkey_revocations(
         packet_join(packets=[revocation], output=output_file, force=True)
 
 
-def persist_direct_sigs(
-    direct_sigs: Dict[Fingerprint, List[Path]],
-    pubkey: Path,
+def persist_direct_key_certifications(
+    direct_key_certifications: Dict[Fingerprint, List[Path]],
     key_dir: Path,
-    sig_type: str = "certification",
 ) -> None:
     """Persist the signatures directly on a root key (such as DirectKeys or *Certifications without a User ID) to
     file(s)
 
     Parameters
     ----------
-    direct_sigs: The direct sigs to write to file
-    pubkey: The path to the public key of the root key
+    direct_key_certifications: The direct key certifications to write to file
     key_dir: The root directory below which the Directkeys are persisted
-    sig_type: The type of direct certification to persist (defaults to 'certification').
     """
 
-    for issuer, certifications in direct_sigs.items():
-        packets = [pubkey] + certifications
-        output_file = key_dir / sig_type / f"{issuer}.asc"
+    for issuer, certifications in direct_key_certifications.items():
+        output_file = key_dir / "certification" / f"{issuer}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {[str(cert) for cert in certifications]}")
-        packet_join(packets, output_file, force=True)
+        packet_join(packets=certifications, output=output_file, force=True)
 
 
-def persist_certifications(
-    certifications: Dict[Uid, List[Path]],
-    pubkey: Path,
+def persist_direct_key_revocations(
+    direct_key_revocations: Dict[Fingerprint, List[Path]],
     key_dir: Path,
-    uid_binding_sig: Dict[Uid, Path],
-    uids: Dict[Uid, Path],
+) -> None:
+    """Persist the revocations directly on a root key (such as KeyRevocation) to file(s)
+
+    Parameters
+    ----------
+    direct_key_revocations: The direct key revocations to write to file
+    key_dir: The root directory below which the Directkeys are persisted
+    """
+
+    for issuer, certifications in direct_key_revocations.items():
+        output_file = key_dir / "revocation" / f"{issuer}.asc"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        debug(f"Writing file {output_file} from {[str(cert) for cert in certifications]}")
+        packet_join(packets=certifications, output=output_file, force=True)
+
+
+def persist_uid_certifications(
+    certifications: Dict[Uid, List[Path]],
+    key_dir: Path,
 ) -> None:
     """Persist the certifications of a root key to file(s)
 
@@ -500,10 +500,7 @@ def persist_certifications(
     Parameters
     ----------
     certifications: The certifications to write to file
-    pubkey: The path to the public key of the root key
     key_dir: The root directory below which certifications are persisted
-    uid_binding_sig: The PositiveCertifications of a User ID and Public-Key packet
-    uids: The User IDs of a Public-Key (the root key)
     """
 
     for key, current_certifications in certifications.items():
@@ -512,25 +509,14 @@ def persist_certifications(
             certification_dir.mkdir(parents=True, exist_ok=True)
             issuer = packet_dump_field(certification, "Issuer")
 
-            if uids.get(key) and uid_binding_sig.get(key):
-                packets = [pubkey, uids[key], uid_binding_sig[key], certification]
-                output_file = certification_dir / f"{issuer}.asc"
-                debug(f"Writing file {output_file} from {certification}")
-                packet_join(packets, output_file, force=True)
-            else:
-                error(
-                    f"Public key '{pubkey}' does not provide "
-                    f"{'the UID binding signature' if not uid_binding_sig.get(key) else ''} for UID '{key}', "
-                    "so its certifications can not be used!"
-                )
+            output_file = certification_dir / f"{issuer}.asc"
+            debug(f"Writing file {output_file} from {certification}")
+            packet_join(packets=[certification], output=output_file, force=True)
 
 
-def persist_revocations(
-    pubkey: Path,
+def persist_uid_revocations(
     revocations: Dict[Uid, List[Path]],
     key_dir: Path,
-    uid_binding_sig: Dict[Uid, Path],
-    uids: Dict[Uid, Path],
 ) -> None:
     """Persist the revocations of a root key to file(s)
 
@@ -539,11 +525,8 @@ def persist_revocations(
 
     Parameters
     ----------
-    pubkey: The path to the public key of the root key
     revocations: The revocations to write to file
     key_dir: The root directory below which revocations will be persisted
-    uid_binding_sig: The PositiveCertifications of a User ID and Public-Key packet
-    uids: The User IDs of a Public-Key (the root key)
     """
 
     for key, current_revocations in revocations.items():
@@ -552,14 +535,9 @@ def persist_revocations(
             revocation_dir.mkdir(parents=True, exist_ok=True)
 
             issuer = packet_dump_field(revocation, "Issuer")
-            packets = [pubkey, uids[key]]
-            # Binding sigs only exist for 3rd-party revocations
-            if key in uid_binding_sig:
-                packets.append(uid_binding_sig[key])
-            packets.append(revocation)
             output_file = revocation_dir / f"{issuer}.asc"
             debug(f"Writing file {output_file} from {revocation}")
-            packet_join(packets, output_file, force=True)
+            packet_join(packets=[revocation], output=output_file, force=True)
 
 
 def packet_dump(packet: Path) -> str:
