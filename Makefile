@@ -10,6 +10,10 @@ lint:
 	flake8 keyringctl libkeyringctl
 	mypy --install-types --non-interactive keyringctl libkeyringctl
 
+fmt:
+	black .
+	isort .
+
 build:
 	./keyringctl -v build
 
