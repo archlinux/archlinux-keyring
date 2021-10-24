@@ -14,6 +14,7 @@ from .keyring import convert
 from .keyring import export
 from .keyring import inspect_keyring
 from .keyring import list_keyring
+from .keyring import verify
 from .util import absolute_path
 from .util import cwd
 
@@ -97,8 +98,24 @@ inspect_parser.add_argument(
     type=absolute_path,
 )
 
+verify_parser = subcommands.add_parser(
+    "verify",
+    help="verify certificates against modern expectations",
+)
+verify_parser.add_argument(
+    "source",
+    nargs="*",
+    help="username, fingerprint or directories containing certificates",
+    type=absolute_path,
+)
+verify_parser.add_argument("--no-lint-hokey", dest="lint_hokey", action="store_false", help="Do not run hokey lint")
+verify_parser.add_argument(
+    "--no-lint-sq-keyring", dest="lint_sq_keyring", action="store_false", help="Do not run sq-keyring-linter"
+)
+verify_parser.set_defaults(lint_hokey=True, lint_sq_keyring=True)
 
-def main() -> None:
+
+def main() -> None:  # noqa: ignore=C901
     args = parser.parse_args()
 
     if args.verbose:
@@ -164,6 +181,14 @@ def main() -> None:
                         sources=args.source,
                     ),
                     end="",
+                )
+            elif "verify" == args.subcommand:
+                verify(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    sources=args.source,
+                    lint_hokey=args.lint_hokey,
+                    lint_sq_keyring=args.lint_sq_keyring,
                 )
             else:
                 parser.print_help()

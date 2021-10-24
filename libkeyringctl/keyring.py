@@ -9,6 +9,8 @@ from re import escape
 from re import match
 from re import sub
 from shutil import copytree
+from subprocess import PIPE
+from subprocess import Popen
 from tempfile import mkdtemp
 from tempfile import mkstemp
 from typing import Dict
@@ -27,6 +29,7 @@ from .sequoia import packet_split
 from .types import Fingerprint
 from .types import Uid
 from .types import Username
+from .util import system
 
 
 def is_pgp_fingerprint(string: str) -> bool:
@@ -977,3 +980,49 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
         certifications=True,
         fingerprints=fingerprints,
     )
+
+
+def verify(
+    working_dir: Path,
+    keyring_root: Path,
+    sources: Optional[List[Path]],
+    lint_hokey: bool = True,
+    lint_sq_keyring: bool = True,
+) -> None:
+    """Verify certificates against modern expectations using sq-keyring-linter and hokey
+
+    Parameters
+    ----------
+    working_dir: A directory to use for temporary files
+    keyring_root: The keyring root directory to look up username shorthand sources
+    sources: A list of username, fingerprint or directories from which to read PGP packet information
+        (defaults to `keyring_root`)
+    lint_hokey: Whether to run hokey lint
+    lint_sq_keyring: Whether to run sq-keyring-linter
+    """
+
+    if not sources:
+        sources = [keyring_root]
+
+    # transform shorthand paths to actual keyring paths
+    transform_username_to_keyring_path(keyring_dir=keyring_root / "packager", paths=sources)
+    transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
+
+    cert_paths: Set[Path] = get_cert_paths(sources)
+
+    for certificate in sorted(cert_paths):
+        print(f"Verify {certificate.name} owned by {certificate.parent.name}")
+        keyring = Path(
+            mkstemp(dir=working_dir, prefix=f"{certificate.parent.name}-{certificate.name}", suffix=".asc")[1]
+        ).absolute()
+        export(
+            working_dir=working_dir,
+            keyring_root=keyring_root,
+            sources=[certificate],
+            output=keyring,
+        )
+        if lint_hokey:
+            keyring_fd = Popen(("sq", "dearmor", f"{str(keyring)}"), stdout=PIPE)
+            print(system(["hokey", "lint"], _stdin=keyring_fd.stdout), end="")
+        if lint_sq_keyring:
+            print(system(["sq-keyring-linter", f"{str(keyring)}"]), end="")

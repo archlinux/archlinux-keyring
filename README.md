@@ -18,6 +18,10 @@ from the provided data structure and to install it:
 * python
 * sequoia-sq
 
+Optional:
+* hopenpgp-tools (verify)
+* sq-keyring-linter (verify)
+
 ## Usage
 
 ### Build
@@ -83,6 +87,13 @@ Inspect all certificates in the keyring
 Only inspect a specific main key
 ```bash
 ./keyringctl inspect --main <username_or_fingerprint_or_directory...>
+```
+
+### Verify
+
+Verify certificates against modern expectations and assumptions
+```bash
+./keyringctl verify <username_or_fingerprint_or_directory...>
 ```
 
 ## Installation

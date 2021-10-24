@@ -7,13 +7,16 @@ from os import chdir
 from os import getcwd
 from pathlib import Path
 from re import split
-from subprocess import PIPE
+from subprocess import STDOUT
 from subprocess import CalledProcessError
 from subprocess import check_output
 from sys import exit
 from sys import stderr
 from traceback import print_stack
+from typing import IO
+from typing import AnyStr
 from typing import List
+from typing import Optional
 from typing import Union
 
 
@@ -77,12 +80,13 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
     return sorted(_list, key=alphanum_key)
 
 
-def system(cmd: List[str], exit_on_error: bool = False) -> str:
+def system(cmd: List[str], _stdin: Optional[IO[AnyStr]] = None, exit_on_error: bool = False) -> str:
     """Execute a command using check_output
 
     Parameters
     ----------
     cmd: A list of strings to be fed to check_output
+    _stdin: input fd used for the spawned process
     exit_on_error: Whether to exit the script when encountering an error (defaults to False)
 
     Raises
@@ -95,9 +99,9 @@ def system(cmd: List[str], exit_on_error: bool = False) -> str:
     """
 
     try:
-        return check_output(cmd, stderr=PIPE).decode()
+        return check_output(cmd, stderr=STDOUT, stdin=_stdin).decode()
     except CalledProcessError as e:
-        stderr.buffer.write(e.stderr)
+        stderr.buffer.write(e.stdout)
         print_stack()
         if exit_on_error:
             exit(e.returncode)
