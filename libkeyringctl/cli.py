@@ -8,6 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from tempfile import mkdtemp
 
+from .ci import ci
 from .keyring import Username
 from .keyring import build
 from .keyring import convert
@@ -114,6 +115,11 @@ verify_parser.add_argument(
 )
 verify_parser.set_defaults(lint_hokey=True, lint_sq_keyring=True)
 
+ci_parser = subcommands.add_parser(
+    "ci",
+    help="ci command to verify certain aspects and expectations in pipelines",
+)
+
 
 def main() -> None:  # noqa: ignore=C901
     args = parser.parse_args()
@@ -123,6 +129,7 @@ def main() -> None:  # noqa: ignore=C901
 
     # temporary working directory that gets auto cleaned
     with TemporaryDirectory(prefix="arch-keyringctl-") as tempdir:
+        project_root = Path(".").absolute()
         keyring_root = Path("keyring").absolute()
         working_dir = Path(tempdir)
         debug(f"Working directory: {working_dir}")
@@ -190,6 +197,8 @@ def main() -> None:  # noqa: ignore=C901
                     lint_hokey=args.lint_hokey,
                     lint_sq_keyring=args.lint_sq_keyring,
                 )
+            elif "ci" == args.subcommand:
+                ci(working_dir=working_dir, keyring_root=keyring_root, project_root=project_root)
             else:
                 parser.print_help()
 

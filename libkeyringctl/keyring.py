@@ -57,7 +57,7 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
 
     Returns
     -------
-    The list of paths to certificates
+    A set of paths to certificates
     """
 
     # depth first search certificate paths
@@ -70,6 +70,31 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
             cert_paths.add(path)
             continue
         visit.extend([path for path in path.iterdir() if path.is_dir()])
+    return cert_paths
+
+
+def get_parent_cert_paths(paths: Iterable[Path]) -> Set[Path]:
+    """Walks a list of paths upwards and resolves all discovered parent certificate paths
+
+    Parameters
+    ----------
+    paths: A list of paths to walk and resolve to certificate paths.
+
+    Returns
+    -------
+    A set of paths to certificates
+    """
+
+    # depth first search certificate paths
+    cert_paths: Set[Path] = set()
+    visit: List[Path] = list(paths)
+    while visit:
+        node = visit.pop().parent
+        # this level contains a certificate, abort depth search
+        if "keyring" == node.parent.parent.parent.name:
+            cert_paths.add(node)
+            continue
+        visit.append(node)
     return cert_paths
 
 

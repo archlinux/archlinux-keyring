@@ -21,6 +21,7 @@ from the provided data structure and to install it:
 Optional:
 * hopenpgp-tools (verify)
 * sq-keyring-linter (verify)
+* git (ci)
 
 ## Usage
 
