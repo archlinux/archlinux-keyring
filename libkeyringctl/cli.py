@@ -1,0 +1,171 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from argparse import ArgumentParser
+from logging import DEBUG
+from logging import basicConfig
+from logging import debug
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from tempfile import mkdtemp
+
+from .keyring import Username
+from .keyring import build
+from .keyring import convert
+from .keyring import export
+from .keyring import inspect_keyring
+from .keyring import list_keyring
+from .util import absolute_path
+from .util import cwd
+
+parser = ArgumentParser()
+parser.add_argument(
+    "-v", "--verbose", action="store_true", help="Causes to print debugging messages about the progress"
+)
+parser.add_argument("--wait", action="store_true", help="Block before cleaning up the temp directory")
+parser.add_argument(
+    "-f",
+    "--force",
+    action="store_true",
+    default=False,
+    help="force the execution of subcommands (e.g. overwriting of files)",
+)
+subcommands = parser.add_subparsers(dest="subcommand")
+
+convert_parser = subcommands.add_parser(
+    "convert",
+    help="convert one or multiple PGP public keys to a decomposed directory structure",
+)
+convert_parser.add_argument("source", type=absolute_path, nargs="+", help="Files or directorie to convert")
+convert_parser.add_argument("--target", type=absolute_path, help="Target directory instead of a random tmpdir")
+convert_parser.add_argument(
+    "--name",
+    type=Username,
+    default=None,
+    help="override the username to use (only useful when using a single file as source)",
+)
+
+import_parser = subcommands.add_parser(
+    "import",
+    help="import one or several PGP keys to the keyring directory structure",
+)
+import_parser.add_argument("source", type=absolute_path, nargs="+", help="Files or directories to import")
+import_parser.add_argument(
+    "--name",
+    type=Username,
+    default=None,
+    help="override the username to use (only useful when using a single file as source)",
+)
+import_parser.add_argument("--main", action="store_true", help="Import a main signing key into the keyring")
+
+export_parser = subcommands.add_parser(
+    "export",
+    help="export a directory structure of PGP packet data to a combined file",
+)
+export_parser.add_argument("-o", "--output", type=absolute_path, help="file to write PGP packet data to")
+export_parser.add_argument(
+    "source",
+    nargs="*",
+    help="username, fingerprint or directories containing certificates",
+    type=absolute_path,
+)
+
+build_parser = subcommands.add_parser(
+    "build",
+    help="build keyring PGP artifacts alongside ownertrust and revoked status files",
+)
+
+list_parser = subcommands.add_parser(
+    "list",
+    help="list the certificates in the keyring",
+)
+list_parser.add_argument("--main", action="store_true", help="List main signing keys instead of packager keys")
+list_parser.add_argument(
+    "source",
+    nargs="*",
+    help="username, fingerprint or directories containing certificates",
+    type=absolute_path,
+)
+
+inspect_parser = subcommands.add_parser(
+    "inspect",
+    help="inspect certificates in the keyring and pretty print the data",
+)
+inspect_parser.add_argument(
+    "source",
+    nargs="*",
+    help="username, fingerprint or directories containing certificates",
+    type=absolute_path,
+)
+
+
+def main() -> None:
+    args = parser.parse_args()
+
+    if args.verbose:
+        basicConfig(level=DEBUG)
+
+    # temporary working directory that gets auto cleaned
+    with TemporaryDirectory(prefix="arch-keyringctl-") as tempdir:
+        keyring_root = Path("keyring").absolute()
+        working_dir = Path(tempdir)
+        debug(f"Working directory: {working_dir}")
+        with cwd(working_dir):
+            if "convert" == args.subcommand:
+                target_dir = args.target or Path(mkdtemp(prefix="arch-keyringctl-")).absolute()
+                print(
+                    convert(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        source=args.source,
+                        target_dir=target_dir,
+                        name_override=args.name,
+                    )
+                )
+            elif "import" == args.subcommand:
+                target_dir = "main" if args.main else "packager"
+                print(
+                    convert(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        source=args.source,
+                        target_dir=keyring_root / target_dir,
+                        name_override=args.name,
+                    )
+                )
+            elif "export" == args.subcommand:
+                print(
+                    export(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        sources=args.source,
+                        output=args.output,
+                    ),
+                    end="",
+                )
+            elif "build" == args.subcommand:
+                build(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    target_dir=keyring_root.parent / "build",
+                )
+            elif "list" == args.subcommand:
+                list_keyring(
+                    keyring_root=keyring_root,
+                    sources=args.source,
+                    main_keys=args.main,
+                )
+            elif "inspect" == args.subcommand:
+                print(
+                    inspect_keyring(
+                        working_dir=working_dir,
+                        keyring_root=keyring_root,
+                        sources=args.source,
+                    ),
+                    end="",
+                )
+            else:
+                parser.print_help()
+
+            if args.wait:
+                print("Press [ENTER] to continue")
+                input()

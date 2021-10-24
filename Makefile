@@ -5,10 +5,10 @@ KEYRING_FILES=$(wildcard build/*.gpg) $(wildcard build/*-revoked) $(wildcard bui
 all: build
 
 lint:
-	black --check --diff keyringctl
+	black --check --diff keyringctl libkeyringctl
 	isort --diff .
-	flake8 keyringctl
-	mypy --install-types --non-interactive keyringctl
+	flake8 keyringctl libkeyringctl
+	mypy --install-types --non-interactive keyringctl libkeyringctl
 
 build:
 	./keyringctl -v build
