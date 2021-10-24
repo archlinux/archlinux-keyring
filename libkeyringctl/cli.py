@@ -133,15 +133,17 @@ def main() -> None:
                     )
                 )
             elif "export" == args.subcommand:
-                print(
-                    export(
-                        working_dir=working_dir,
-                        keyring_root=keyring_root,
-                        sources=args.source,
-                        output=args.output,
-                    ),
-                    end="",
+                result = export(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    sources=args.source,
+                    output=args.output,
                 )
+                if result:
+                    print(
+                        result,
+                        end="",
+                    )
             elif "build" == args.subcommand:
                 build(
                     working_dir=working_dir,

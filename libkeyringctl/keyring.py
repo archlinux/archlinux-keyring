@@ -62,8 +62,6 @@ def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
     visit: List[Path] = list(paths)
     while visit:
         path = visit.pop()
-        if not path.exists():
-            continue
         # this level contains a certificate, abort depth search
         if list(path.glob("*.asc")):
             cert_paths.add(path)
@@ -580,7 +578,7 @@ def convert(
         get_fingerprints(
             working_dir=working_dir,
             sources=source,
-            paths=[keyring_root],
+            paths=[keyring_root] if keyring_root.exists() else [],
         ).keys()
     )
 
@@ -832,7 +830,7 @@ def export(
     keyring_root: Path,
     sources: Optional[List[Path]] = None,
     output: Optional[Path] = None,
-) -> str:
+) -> Optional[str]:
     """Export all provided PGP packet files to a single output file
 
     If sources contains directories, any .asc files below them are considered.
@@ -875,6 +873,9 @@ def export(
             force=True,
         )
         certificates.append(output_path)
+
+    if not certificates:
+        return None
 
     return keyring_merge(certificates, output, force=True)
 
