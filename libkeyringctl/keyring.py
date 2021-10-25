@@ -131,7 +131,7 @@ def transform_fingerprint_to_keyring_path(keyring_root: Path, paths: List[Path])
         fingerprint_paths = list(keyring_root.glob(f"*/*/*{source.name}"))
         if not fingerprint_paths:
             continue
-        paths[index] = fingerprint_paths[0].parent
+        paths[index] = fingerprint_paths[0]
 
 
 # TODO: simplify to lower complexity
@@ -960,11 +960,12 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     transform_username_to_keyring_path(keyring_dir=keyring_dir, paths=sources)
     transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
-    username_length = max([len(source.name) for source in sources])
+    for index, source in enumerate(sources):
+        if is_pgp_fingerprint(source.name):
+            sources[index] = source.parent
 
+    username_length = max([len(source.name) for source in sources])
     for user_path in sources:
-        if is_pgp_fingerprint(user_path.name):
-            user_path = user_path.parent
         certificates = [cert.name for cert in user_path.iterdir()]
         print(f"{user_path.name:<{username_length}} {' '.join(certificates)}")
 
