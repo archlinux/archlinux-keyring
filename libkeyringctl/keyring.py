@@ -11,8 +11,8 @@ from re import sub
 from shutil import copytree
 from subprocess import PIPE
 from subprocess import Popen
+from tempfile import NamedTemporaryFile
 from tempfile import mkdtemp
-from tempfile import mkstemp
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -993,18 +993,19 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
     transform_username_to_keyring_path(keyring_dir=keyring_root / "packager", paths=sources)
     transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
-    keyring = Path(mkstemp(dir=working_dir, prefix="packet-", suffix=".asc")[1]).absolute()
-    export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring)
+    with NamedTemporaryFile(dir=working_dir, prefix="packet-", suffix=".asc") as keyring:
+        keyring_path = Path(keyring.name)
+        export(working_dir=working_dir, keyring_root=keyring_root, sources=sources, output=keyring_path)
 
-    fingerprints: Dict[Fingerprint, Username] = get_fingerprints_from_certificate_directory(
-        paths=[keyring_root / "packager"]
-    ) | get_fingerprints_from_certificate_directory(paths=[keyring_root / "main"], postfix=" (main)")
+        fingerprints: Dict[Fingerprint, Username] = get_fingerprints_from_certificate_directory(
+            paths=[keyring_root / "packager"]
+        ) | get_fingerprints_from_certificate_directory(paths=[keyring_root / "main"], postfix=" (main)")
 
-    return inspect(
-        packet=keyring,
-        certifications=True,
-        fingerprints=fingerprints,
-    )
+        return inspect(
+            packet=keyring_path,
+            certifications=True,
+            fingerprints=fingerprints,
+        )
 
 
 def verify(
@@ -1037,17 +1038,20 @@ def verify(
 
     for certificate in sorted(cert_paths):
         print(f"Verify {certificate.name} owned by {certificate.parent.name}")
-        keyring = Path(
-            mkstemp(dir=working_dir, prefix=f"{certificate.parent.name}-{certificate.name}", suffix=".asc")[1]
-        ).absolute()
-        export(
-            working_dir=working_dir,
-            keyring_root=keyring_root,
-            sources=[certificate],
-            output=keyring,
-        )
-        if lint_hokey:
-            keyring_fd = Popen(("sq", "dearmor", f"{str(keyring)}"), stdout=PIPE)
-            print(system(["hokey", "lint"], _stdin=keyring_fd.stdout), end="")
-        if lint_sq_keyring:
-            print(system(["sq-keyring-linter", f"{str(keyring)}"]), end="")
+
+        with NamedTemporaryFile(
+            dir=working_dir, prefix=f"{certificate.parent.name}-{certificate.name}", suffix=".asc"
+        ) as keyring:
+            keyring_path = Path(keyring.name)
+            export(
+                working_dir=working_dir,
+                keyring_root=keyring_root,
+                sources=[certificate],
+                output=keyring_path,
+            )
+
+            if lint_hokey:
+                keyring_fd = Popen(("sq", "dearmor", f"{str(keyring_path)}"), stdout=PIPE)
+                print(system(["hokey", "lint"], _stdin=keyring_fd.stdout), end="")
+            if lint_sq_keyring:
+                print(system(["sq-keyring-linter", f"{str(keyring_path)}"]), end="")
