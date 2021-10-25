@@ -686,7 +686,7 @@ def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint
     return trusted_certs, revoked_certs
 
 
-def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path, min_revoker: int = 2) -> None:
+def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path, min_revoker: int = 1) -> None:
     """Export the PGP revoked status from a set of keys
 
     The output file contains the fingerprints of all self-revoked keys and all keys for which at least two revocations
