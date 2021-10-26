@@ -12,6 +12,7 @@ from subprocess import CalledProcessError
 from subprocess import check_output
 from sys import exit
 from sys import stderr
+from tempfile import mkstemp
 from traceback import print_stack
 from typing import IO
 from typing import AnyStr
@@ -121,3 +122,23 @@ def absolute_path(path: str) -> Path:
     """
 
     return Path(path).absolute()
+
+
+def transform_fd_to_tmpfile(working_dir: Path, sources: List[Path]) -> None:
+    """Transforms an input list of paths from any file descriptor of the current process to a tempfile in working_dir.
+
+    Using this function on fd inputs allow to pass the content to another process while hidepid is active and /proc
+    not visible for the other process.
+
+    Parameters
+    ----------
+    working_dir: A directory to use for temporary files
+    sources: Paths that should be iterated and all fd's transformed to tmpfiles
+    """
+    for index, source in enumerate(sources):
+        if str(source).startswith("/proc/self/fd"):
+            file = mkstemp(dir=working_dir, prefix=f"{source.name}", suffix=".fd")[1]
+            with open(file, mode="wb") as f:
+                f.write(source.read_bytes())
+                f.flush()
+            sources[index] = Path(file)

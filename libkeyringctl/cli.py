@@ -140,7 +140,7 @@ def main() -> None:  # noqa: ignore=C901
                     convert(
                         working_dir=working_dir,
                         keyring_root=keyring_root,
-                        source=args.source,
+                        sources=args.source,
                         target_dir=target_dir,
                         name_override=args.name,
                     )
@@ -151,7 +151,7 @@ def main() -> None:  # noqa: ignore=C901
                     convert(
                         working_dir=working_dir,
                         keyring_root=keyring_root,
-                        source=args.source,
+                        sources=args.source,
                         target_dir=keyring_root / target_dir,
                         name_override=args.name,
                     )

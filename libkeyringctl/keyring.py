@@ -30,6 +30,7 @@ from .types import Fingerprint
 from .types import Uid
 from .types import Username
 from .util import system
+from .util import transform_fd_to_tmpfile
 
 
 def is_pgp_fingerprint(string: str) -> bool:
@@ -578,7 +579,7 @@ def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint:
 def convert(
     working_dir: Path,
     keyring_root: Path,
-    source: Iterable[Path],
+    sources: List[Path],
     target_dir: Path,
     name_override: Optional[Username] = None,
 ) -> Path:
@@ -590,7 +591,7 @@ def convert(
     ----------
     working_dir: A directory to use for temporary files
     keyring_root: The keyring root directory to look up accepted fingerprints for certifications
-    source: A path to a file or directory to decompose
+    sources: A path to a file or directory to decompose
     target_dir: A directory path to write the new directory structure to
     name_override: An optional username override for the call to `convert_certificate()`
 
@@ -600,12 +601,13 @@ def convert(
     """
 
     directories: List[Path] = []
-    keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], source)))
+    transform_fd_to_tmpfile(working_dir=working_dir, sources=sources)
+    keys: Iterable[Path] = set(chain.from_iterable(map(lambda s: s.iterdir() if s.is_dir() else [s], sources)))
 
     fingerprint_filter = set(
         get_fingerprints(
             working_dir=working_dir,
-            sources=source,
+            sources=sources,
             paths=[keyring_root] if keyring_root.exists() else [],
         ).keys()
     )
