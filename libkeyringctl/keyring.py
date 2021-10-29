@@ -17,7 +17,6 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
-from typing import Tuple
 
 from .sequoia import inspect
 from .sequoia import keyring_merge
@@ -26,9 +25,14 @@ from .sequoia import latest_certification
 from .sequoia import packet_dump_field
 from .sequoia import packet_join
 from .sequoia import packet_split
+from .trust import certificate_trust
+from .trust import certificate_trust_from_paths
+from .trust import format_trust_label
 from .types import Fingerprint
+from .types import Trust
 from .types import Uid
 from .types import Username
+from .util import get_cert_paths
 from .util import system
 from .util import transform_fd_to_tmpfile
 
@@ -47,56 +51,6 @@ def is_pgp_fingerprint(string: str) -> bool:
     if len(string) not in [16, 40]:
         return False
     return match("^[A-F0-9]+$", string) is not None
-
-
-def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
-    """Walks a list of paths and resolves all discovered certificate paths
-
-    Parameters
-    ----------
-    paths: A list of paths to walk and resolve to certificate paths.
-
-    Returns
-    -------
-    A set of paths to certificates
-    """
-
-    # depth first search certificate paths
-    cert_paths: Set[Path] = set()
-    visit: List[Path] = list(paths)
-    while visit:
-        path = visit.pop()
-        # this level contains a certificate, abort depth search
-        if list(path.glob("*.asc")):
-            cert_paths.add(path)
-            continue
-        visit.extend([path for path in path.iterdir() if path.is_dir()])
-    return cert_paths
-
-
-def get_parent_cert_paths(paths: Iterable[Path]) -> Set[Path]:
-    """Walks a list of paths upwards and resolves all discovered parent certificate paths
-
-    Parameters
-    ----------
-    paths: A list of paths to walk and resolve to certificate paths.
-
-    Returns
-    -------
-    A set of paths to certificates
-    """
-
-    # depth first search certificate paths
-    cert_paths: Set[Path] = set()
-    visit: List[Path] = list(paths)
-    while visit:
-        node = visit.pop().parent
-        # this level contains a certificate, abort depth search
-        if "keyring" == node.parent.parent.parent.name:
-            cert_paths.add(node)
-            continue
-        visit.append(node)
-    return cert_paths
 
 
 def transform_username_to_keyring_path(keyring_dir: Path, paths: List[Path]) -> None:
@@ -631,40 +585,7 @@ def convert(
     return target_dir
 
 
-def get_trusted_and_revoked_certs(certs: List[Path]) -> Tuple[List[Fingerprint], List[Fingerprint]]:
-    """Get the fingerprints of all trusted and all self revoked public keys in a directory
-
-    Parameters
-    ----------
-    certs: The certificates to trust
-
-    Returns
-    -------
-    A tuple with the first item containing the fingerprints of all public keys and the second item containing the
-    fingerprints of all self-revoked public keys
-    """
-
-    all_certs: List[Fingerprint] = []
-    revoked_certs: List[Fingerprint] = []
-
-    # TODO: what about direct key revocations/signatures?
-
-    debug(f"Retrieving trusted and self-revoked certificates from {[str(cert_dir) for cert_dir in certs]}")
-
-    for cert_dir in sorted(get_cert_paths(certs)):
-        cert_fingerprint = Fingerprint(cert_dir.stem)
-        all_certs.append(cert_fingerprint)
-        for revocation_cert in cert_dir.glob("revocation/*.asc"):
-            if cert_fingerprint.endswith(revocation_cert.stem):
-                debug(f"Revoking {cert_fingerprint} due to self-revocation")
-                revoked_certs.append(cert_fingerprint)
-
-    trusted_keys = [cert for cert in all_certs if cert not in revoked_certs]
-
-    return trusted_keys, revoked_certs
-
-
-def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint], List[Fingerprint]]:
+def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
     """Export ownertrust from a set of keys and return the trusted and revoked fingerprints
 
     The output file format is compatible with `gpg --import-ownertrust` and lists the main fingerprint ID of all
@@ -676,19 +597,29 @@ def export_ownertrust(certs: List[Path], output: Path) -> Tuple[List[Fingerprint
     ----------
     certs: The certificates to trust
     output: The file path to write to
+
+    Returns
+    -------
+    List of ownertrust fingerprints
     """
 
-    trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
+    main_trusts = certificate_trust_from_paths(sources=certs, main_keys=get_fingerprints_from_paths(sources=certs))
+    trusted_certs: List[Fingerprint] = list(
+        map(
+            lambda item: item[0],
+            filter(lambda item: Trust.full == item[1], main_trusts.items()),
+        )
+    )
 
     with open(file=output, mode="w") as trusted_certs_file:
         for cert in sorted(set(trusted_certs)):
             debug(f"Writing {cert} to {output}")
             trusted_certs_file.write(f"{cert}:4:\n")
 
-    return trusted_certs, revoked_certs
+    return trusted_certs
 
 
-def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path, min_revoker: int = 1) -> None:
+def export_revoked(certs: List[Path], main_keys: Set[Fingerprint], output: Path) -> None:
     """Export the PGP revoked status from a set of keys
 
     The output file contains the fingerprints of all self-revoked keys and all keys for which at least two revocations
@@ -701,35 +632,20 @@ def export_revoked(certs: List[Path], main_keys: List[Fingerprint], output: Path
     certs: A list of directories with keys to check for their revocation status
     main_keys: A list of strings representing the fingerprints of (current and/or revoked) main keys
     output: The file path to write to
-    min_revoker: The minimum amount of revocation certificates on a User ID from any main key to deem a public key as
-        revoked
     """
 
-    trusted_certs, revoked_certs = get_trusted_and_revoked_certs(certs=certs)
+    certificate_trusts = certificate_trust_from_paths(sources=certs, main_keys=main_keys)
+    revoked_certs: List[Fingerprint] = list(
+        map(
+            lambda item: item[0],
+            filter(lambda item: Trust.revoked == item[1], certificate_trusts.items()),
+        )
+    )
 
-    debug(f"Retrieving certificates revoked by main keys from {[str(cert_dir) for cert_dir in certs]}")
-    foreign_revocations: Dict[Fingerprint, Set[Fingerprint]] = defaultdict(set)
-    for cert_dir in sorted(get_cert_paths(certs)):
-        fingerprint = Fingerprint(cert_dir.name)
-        debug(f"Inspecting public key {fingerprint}")
-        for revocation_cert in cert_dir.glob("uid/*/revocation/*.asc"):
-            revocation_fingerprint = Fingerprint(revocation_cert.stem)
-            foreign_revocations[fingerprint].update(
-                [revocation_fingerprint for main_key in main_keys if main_key.endswith(revocation_fingerprint)]
-            )
-
-        # TODO: find a better (less naive) approach, as this would also match on public certificates,
-        # where some UIDs are signed and others are revoked
-        if len(foreign_revocations[fingerprint]) >= min_revoker:
-            debug(
-                f"Revoking {cert_dir.name} due to {set(foreign_revocations[fingerprint])} " "being main key revocations"
-            )
-            revoked_certs.append(fingerprint)
-
-    with open(file=output, mode="w") as trusted_certs_file:
+    with open(file=output, mode="w") as revoked_certs_file:
         for cert in sorted(set(revoked_certs)):
             debug(f"Writing {cert} to {output}")
-            trusted_certs_file.write(f"{cert}\n")
+            revoked_certs_file.write(f"{cert}\n")
 
 
 def get_fingerprints_from_keyring_files(working_dir: Path, source: Iterable[Path]) -> Dict[Fingerprint, Username]:
@@ -929,13 +845,13 @@ def build(
     keyring: Path = target_dir / Path("archlinux.gpg")
     export(working_dir=working_dir, keyring_root=keyring_root, output=keyring)
 
-    [trusted_main_keys, revoked_main_keys] = export_ownertrust(
+    trusted_main_keys = export_ownertrust(
         certs=[keyring_root / "main"],
         output=target_dir / "archlinux-trusted",
     )
     export_revoked(
         certs=[keyring_root],
-        main_keys=trusted_main_keys + revoked_main_keys,
+        main_keys=set(trusted_main_keys),
         output=target_dir / "archlinux-revoked",
     )
 
@@ -962,14 +878,17 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     transform_username_to_keyring_path(keyring_dir=keyring_dir, paths=sources)
     transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
 
-    for index, source in enumerate(sources):
-        if is_pgp_fingerprint(source.name):
-            sources[index] = source.parent
+    # resolve all sources to certificate paths
+    sources = list(sorted(get_cert_paths(sources), key=lambda path: str(path).casefold()))
 
-    username_length = max([len(source.name) for source in sources])
-    for user_path in sources:
-        certificates = [cert.name for cert in user_path.iterdir()]
-        print(f"{user_path.name:<{username_length}} {' '.join(certificates)}")
+    username_length = max([len(source.parent.name) for source in sources])
+    for certificate in sources:
+        username: Username = Username(certificate.parent.name)
+        trust = certificate_trust(
+            certificate=certificate, main_keys=get_fingerprints_from_paths([keyring_root / "main"])
+        )
+        trust_label = format_trust_label(trust=trust)
+        print(f"{username:<{username_length}} {certificate.name} {trust_label}")
 
 
 def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[List[Path]]) -> str:
@@ -1058,3 +977,17 @@ def verify(
                 print(system(["hokey", "lint"], _stdin=keyring_fd.stdout), end="")
             if lint_sq_keyring:
                 print(system(["sq-keyring-linter", f"{str(keyring_path)}"]), end="")
+
+
+def get_fingerprints_from_paths(sources: Iterable[Path]) -> Set[Fingerprint]:
+    """Get the fingerprints of all certificates found in the sources paths.
+
+    Parameters
+    ----------
+    sources: A list of directories from which to get fingerprints of the certificates.
+
+    Returns
+    -------
+    The list of all fingerprints obtained from the sources.
+    """
+    return set([Fingerprint(cert.name) for cert in get_cert_paths(sources)])

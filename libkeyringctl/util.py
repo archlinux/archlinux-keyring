@@ -18,7 +18,10 @@ from typing import IO
 from typing import AnyStr
 from typing import List
 from typing import Optional
+from typing import Set
 from typing import Union
+
+from libkeyringctl.types import Fingerprint
 
 
 @contextmanager
@@ -142,3 +145,57 @@ def transform_fd_to_tmpfile(working_dir: Path, sources: List[Path]) -> None:
                 f.write(source.read_bytes())
                 f.flush()
             sources[index] = Path(file)
+
+
+def get_cert_paths(paths: Iterable[Path]) -> Set[Path]:
+    """Walks a list of paths and resolves all discovered certificate paths
+
+    Parameters
+    ----------
+    paths: A list of paths to walk and resolve to certificate paths.
+
+    Returns
+    -------
+    A set of paths to certificates
+    """
+
+    # depth first search certificate paths
+    cert_paths: Set[Path] = set()
+    visit: List[Path] = list(paths)
+    while visit:
+        path = visit.pop()
+        # this level contains a certificate, abort depth search
+        if list(path.glob("*.asc")):
+            cert_paths.add(path)
+            continue
+        visit.extend([path for path in path.iterdir() if path.is_dir()])
+    return cert_paths
+
+
+def get_parent_cert_paths(paths: Iterable[Path]) -> Set[Path]:
+    """Walks a list of paths upwards and resolves all discovered parent certificate paths
+
+    Parameters
+    ----------
+    paths: A list of paths to walk and resolve to certificate paths.
+
+    Returns
+    -------
+    A set of paths to certificates
+    """
+
+    # depth first search certificate paths
+    cert_paths: Set[Path] = set()
+    visit: List[Path] = list(paths)
+    while visit:
+        node = visit.pop().parent
+        # this level contains a certificate, abort depth search
+        if "keyring" == node.parent.parent.parent.name:
+            cert_paths.add(node)
+            continue
+        visit.append(node)
+    return cert_paths
+
+
+def contains_fingerprint(fingerprints: Iterable[Fingerprint], fingerprint: Fingerprint) -> bool:
+    return any(filter(lambda e: str(e).endswith(fingerprint), fingerprints))
