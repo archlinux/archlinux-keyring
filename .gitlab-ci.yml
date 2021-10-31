@@ -21,7 +21,7 @@ test:
   stage: test
   needs: []
   before_script:
-    - pacman -Syu --needed --noconfirm make python sequoia-sq python-pytest
+    - pacman -Syu --needed --noconfirm make python sequoia-sq python-coverage python-pytest
   script:
     - make test
   only:
