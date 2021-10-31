@@ -16,6 +16,7 @@ lint:
       - keyringctl
       - libkeyringctl/*
       - test/*
+      - .gitlab-ci.yml
 
 test:
   stage: test
@@ -29,6 +30,7 @@ test:
       - keyringctl
       - libkeyringctl/*
       - test/*
+      - .gitlab-ci.yml
 
 build_install:
   stage: test
