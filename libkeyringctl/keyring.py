@@ -118,7 +118,7 @@ def convert_certificate(  # noqa: ignore=C901
 
     Returns
     -------
-    The path of the user_dir (which is located below working_dir)
+    The path of the key directory (which is located below working_dir below the user_dir)
     """
 
     # root packets
@@ -279,7 +279,7 @@ def convert_certificate(  # noqa: ignore=C901
         key_dir=key_dir,
     )
 
-    return user_dir
+    return key_dir
 
 
 def persist_public_key(
@@ -579,8 +579,9 @@ def convert(
             )
 
     for path in directories:
-        (target_dir / path.name).mkdir(parents=True, exist_ok=True)
-        copytree(src=path, dst=(target_dir / path.name), dirs_exist_ok=True)
+        user_dir = path.parent
+        (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
+        copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
 
     return target_dir
 

@@ -31,6 +31,7 @@ and develop this project:
 
 * python-black
 * python-isort
+* python-pytest
 * flake8
 * mypy
 
@@ -41,3 +42,15 @@ The `keyringctl` script is written in typed python, which makes use of
 
 The script is type checked, linted and formatted using standard tooling.
 When providing a merge request make sure to run `make lint`.
+
+## Testing
+
+Test cases are developed per module in the [test](test) directory and should
+consist of atomic single expectation tests. A Huge test case asserting various
+different expectations are discouraged and should be split into finer grained
+test cases.
+
+To execute all tests using pytest
+```bash
+make test
+```

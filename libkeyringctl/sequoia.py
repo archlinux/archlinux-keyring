@@ -11,6 +11,7 @@ from typing import List
 from typing import Optional
 
 from .types import Fingerprint
+from .types import Uid
 from .types import Username
 from .util import cwd
 from .util import natural_sort_path
@@ -222,3 +223,63 @@ def latest_certification(certifications: Iterable[Path]) -> Path:
         lambda a, b: a if packet_signature_creation_time(a) > packet_signature_creation_time(b) else b,
         certifications,
     )
+
+
+def key_generate(uids: List[Uid], outfile: Path) -> str:
+    """Generate a PGP key with specific uids
+
+    Parameters
+    ----------
+    uids: List of uids that the key should have
+    outfile: Path to the file to which the key should be written to
+
+    Returns
+    -------
+    The result of the key generate call
+    """
+
+    cmd = ["sq", "key", "generate"]
+    for uid in uids:
+        cmd.extend(["--userid", str(uid)])
+    cmd.extend(["--export", str(outfile)])
+    return system(cmd)
+
+
+def key_extract_certificate(key: Path, output: Optional[Path]) -> str:
+    """Extracts the non secret part from a key into a certificate
+
+    Parameters
+    ----------
+    key: Path to a file that contain secret key material
+    output: Path to the file to which the key should be written to, stdout if None
+
+    Returns
+    -------
+    The result of the extract in case output is None
+    """
+
+    cmd = ["sq", "key", "extract-cert", str(key)]
+    if output:
+        cmd.extend(["--output", str(output)])
+    return system(cmd)
+
+
+def certify(key: Path, certificate: Path, uid: Uid, output: Optional[Path]) -> str:
+    """Inspect PGP packet data and return the result
+
+    Parameters
+    ----------
+    key: Path to a file that contain secret key material
+    certificate: Path to a certificate file whose uid should be certified
+    uid: Uid contain in the certificate that should be certified
+    output: Path to the file to which the key should be written to, stdout if None
+
+    Returns
+    -------
+    The result of the certification in case output is None
+    """
+
+    cmd = ["sq", "certify", str(key), str(certificate), uid]
+    if output:
+        cmd.extend(["--output", str(output)])
+    return system(cmd)

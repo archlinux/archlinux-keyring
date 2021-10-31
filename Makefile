@@ -14,6 +14,9 @@ fmt:
 	black .
 	isort .
 
+test:
+	py.test
+
 build:
 	./keyringctl -v build
 
@@ -24,4 +27,4 @@ uninstall:
 	rm -f $(KEYRING_TARGET_DIR)/archlinux{.gpg,-trusted,-revoked}
 	rmdir -p --ignore-fail-on-non-empty $(KEYRING_TARGET_DIR)
 
-.PHONY: build install lint uninstall
+.PHONY: all lint fmt test build install uninstall
