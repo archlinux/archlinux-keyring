@@ -15,7 +15,8 @@ fmt:
 	isort .
 
 test:
-	py.test
+	coverage run
+	coverage report
 
 build:
 	./keyringctl -v build
