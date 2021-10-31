@@ -30,6 +30,7 @@ The following additional packages need to be installed to be able to lint
 and develop this project:
 
 * python-black
+* python-coverage
 * python-isort
 * python-pytest
 * flake8
