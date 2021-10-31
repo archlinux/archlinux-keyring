@@ -3,3 +3,5 @@
 archlinux-keyring-*.tar.gz
 archlinux-keyring-*.tar.gz.sig
 /.idea
+.coverage
+__pycache__/
