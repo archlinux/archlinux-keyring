@@ -105,7 +105,7 @@ def system(cmd: List[str], _stdin: Optional[IO[AnyStr]] = None, exit_on_error: b
     try:
         return check_output(cmd, stderr=STDOUT, stdin=_stdin).decode()
     except CalledProcessError as e:
-        stderr.buffer.write(e.stdout)
+        stderr.buffer.write(bytes(e.stdout, encoding="utf8"))
         print_stack()
         if exit_on_error:
             exit(e.returncode)
