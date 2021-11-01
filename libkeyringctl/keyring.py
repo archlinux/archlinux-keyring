@@ -32,6 +32,7 @@ from .types import Fingerprint
 from .types import Trust
 from .types import Uid
 from .types import Username
+from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
 from .util import system
 from .util import transform_fd_to_tmpfile
@@ -605,12 +606,7 @@ def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
     """
 
     main_trusts = certificate_trust_from_paths(sources=certs, main_keys=get_fingerprints_from_paths(sources=certs))
-    trusted_certs: List[Fingerprint] = list(
-        map(
-            lambda item: item[0],
-            filter(lambda item: Trust.full == item[1], main_trusts.items()),
-        )
-    )
+    trusted_certs: List[Fingerprint] = filter_fingerprints_by_trust(main_trusts, Trust.full)
 
     with open(file=output, mode="w") as trusted_certs_file:
         for cert in sorted(set(trusted_certs)):
@@ -636,12 +632,7 @@ def export_revoked(certs: List[Path], main_keys: Set[Fingerprint], output: Path)
     """
 
     certificate_trusts = certificate_trust_from_paths(sources=certs, main_keys=main_keys)
-    revoked_certs: List[Fingerprint] = list(
-        map(
-            lambda item: item[0],
-            filter(lambda item: Trust.revoked == item[1], certificate_trusts.items()),
-        )
-    )
+    revoked_certs: List[Fingerprint] = filter_fingerprints_by_trust(certificate_trusts, Trust.revoked)
 
     with open(file=output, mode="w") as revoked_certs_file:
         for cert in sorted(set(revoked_certs)):

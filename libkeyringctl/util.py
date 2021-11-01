@@ -16,12 +16,14 @@ from tempfile import mkstemp
 from traceback import print_stack
 from typing import IO
 from typing import AnyStr
+from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
 from typing import Union
 
 from libkeyringctl.types import Fingerprint
+from libkeyringctl.types import Trust
 
 
 @contextmanager
@@ -198,4 +200,37 @@ def get_parent_cert_paths(paths: Iterable[Path]) -> Set[Path]:
 
 
 def contains_fingerprint(fingerprints: Iterable[Fingerprint], fingerprint: Fingerprint) -> bool:
+    """Returns weather an iterable structure of fingerprints contains a specific fingerprint
+
+    Parameters
+    ----------
+    fingerprints: Iteratable structure of fingerprints that should be searched
+    fingerprint: Fingerprint to search for
+
+    Returns
+    -------
+    Weather an iterable structure of fingerprints contains a specific fingerprint
+    """
+
     return any(filter(lambda e: str(e).endswith(fingerprint), fingerprints))
+
+
+def filter_fingerprints_by_trust(trusts: Dict[Fingerprint, Trust], trust: Trust) -> List[Fingerprint]:
+    """Filters a dict of Fingerprint to Trust by a passed Trust parameter and returns the matching fingerprints.
+
+    Parameters
+    ----------
+    trusts: Dict of Fingerprint to Trust that should be filtered based on the trust parameter
+    trust: Trust that should be used to filter the trusts dict
+
+    Returns
+    -------
+    The matching fingerprints of the dict filtered by trust
+    """
+
+    return list(
+        map(
+            lambda item: item[0],
+            filter(lambda item: trust == item[1], trusts.items()),
+        )
+    )

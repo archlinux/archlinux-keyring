@@ -12,7 +12,7 @@ from .conftest import test_main_fingerprints
 
 
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")], keyring_type="main")
-def test_certificate_trust_main_key_has_full_trust(working_dir: Path, keyring_dir: Path):
+def test_certificate_trust_main_key_has_full_trust(working_dir: Path, keyring_dir: Path) -> None:
     trust = certificate_trust(
         test_keyring_certificates[Username("foobar")][0],
         test_main_fingerprints,
@@ -22,7 +22,7 @@ def test_certificate_trust_main_key_has_full_trust(working_dir: Path, keyring_di
 
 @create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")])
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
-def test_certificate_trust_no_signature_is_unknown(working_dir: Path, keyring_dir: Path):
+def test_certificate_trust_no_signature_is_unknown(working_dir: Path, keyring_dir: Path) -> None:
     trust = certificate_trust(
         test_keyring_certificates[Username("foobar")][0],
         test_main_fingerprints,
@@ -33,7 +33,7 @@ def test_certificate_trust_no_signature_is_unknown(working_dir: Path, keyring_di
 @create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
 @create_uid_certification(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
-def test_certificate_trust_one_signature_is_marginal(working_dir: Path, keyring_dir: Path):
+def test_certificate_trust_one_signature_is_marginal(working_dir: Path, keyring_dir: Path) -> None:
     trust = certificate_trust(
         test_keyring_certificates[Username("foobar")][0],
         test_main_fingerprints,
@@ -45,7 +45,7 @@ def test_certificate_trust_one_signature_is_marginal(working_dir: Path, keyring_
 @create_certificate(username=Username("not_main"), uids=[Uid("main <foo@bar.xyz>")])
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
 @create_uid_certification(issuer=Username("not_main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
-def test_certificate_trust_one_none_main_signature_gives_no_trust(working_dir: Path, keyring_dir: Path):
+def test_certificate_trust_one_none_main_signature_gives_no_trust(working_dir: Path, keyring_dir: Path) -> None:
     trust = certificate_trust(
         test_keyring_certificates[Username("foobar")][0],
         test_main_fingerprints,
@@ -60,7 +60,7 @@ def test_certificate_trust_one_none_main_signature_gives_no_trust(working_dir: P
 @create_uid_certification(issuer=Username("main1"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
 @create_uid_certification(issuer=Username("main2"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
 @create_uid_certification(issuer=Username("main3"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
-def test_certificate_trust_three_main_signature_gives_full_trust(working_dir: Path, keyring_dir: Path):
+def test_certificate_trust_three_main_signature_gives_full_trust(working_dir: Path, keyring_dir: Path) -> None:
     trust = certificate_trust(
         test_keyring_certificates[Username("foobar")][0],
         test_main_fingerprints,

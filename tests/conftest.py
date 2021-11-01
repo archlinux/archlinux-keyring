@@ -3,8 +3,12 @@ from functools import wraps
 from pathlib import Path
 from shutil import copytree
 from tempfile import TemporaryDirectory
+from typing import Any
+from typing import Callable
 from typing import Dict
+from typing import Generator
 from typing import List
+from typing import Optional
 from typing import Set
 
 from pytest import fixture
@@ -26,17 +30,22 @@ test_main_fingerprints: Set[Fingerprint] = set()
 
 
 @fixture(autouse=True)
-def reset_storage():
+def reset_storage() -> None:
     test_keys.clear()
     test_certificates.clear()
     test_keyring_certificates.clear()
     test_main_fingerprints.clear()
 
 
-def create_certificate(username: Username, uids: List[Uid], keyring_type: str = "packager", func=None):
-    def decorator(decorated_func):
+def create_certificate(
+    username: Username,
+    uids: List[Uid],
+    keyring_type: str = "packager",
+    func: Optional[Callable[..., Any]] = None,
+) -> Callable[..., Any]:
+    def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
         @wraps(decorated_func)
-        def wrapper(working_dir: Path, *args, **kwargs):
+        def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
             print(username)
 
             key_directory = working_dir / "secret" / f"{id}"
@@ -80,10 +89,12 @@ def create_certificate(username: Username, uids: List[Uid], keyring_type: str = 
     return decorator(func)
 
 
-def create_uid_certification(issuer: Username, certified: Username, uid: Uid, func=None):
-    def decorator(decorated_func):
+def create_uid_certification(
+    issuer: Username, certified: Username, uid: Uid, func: Optional[Callable[[Any], None]] = None
+) -> Callable[..., Any]:
+    def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
         @wraps(decorated_func)
-        def wrapper(working_dir: Path, *args, **kwargs):
+        def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
             key: Path = test_keys[issuer][0]
             certificate: Path = test_certificates[certified][0]
             fingerprint: Fingerprint = Fingerprint(test_keyring_certificates[certified][0].name)
@@ -115,12 +126,13 @@ def create_uid_certification(issuer: Username, certified: Username, uid: Uid, fu
 
 
 @fixture(scope="function")
-def working_dir():
+def working_dir() -> Generator[Path, None, None]:
     with TemporaryDirectory(prefix="arch-keyringctl-test-") as tempdir:
-        with cwd(tempdir):
-            yield Path(tempdir)
+        path: Path = Path(tempdir)
+        with cwd(path):
+            yield path
 
 
 @fixture(scope="function")
-def keyring_dir(working_dir: Path):
+def keyring_dir(working_dir: Path) -> Generator[Path, None, None]:
     yield working_dir / "keyring"
