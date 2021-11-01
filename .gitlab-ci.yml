@@ -15,8 +15,9 @@ lint:
     changes:
       - keyringctl
       - libkeyringctl/*
-      - test/*
+      - tests/*
       - .gitlab-ci.yml
+      - Makefile
 
 test:
   stage: test
@@ -29,8 +30,14 @@ test:
     changes:
       - keyringctl
       - libkeyringctl/*
-      - test/*
+      - tests/*
       - .gitlab-ci.yml
+      - Makefile
+  artifacts:
+    when: always
+    reports:
+      junit: build/junit-report.xml
+      cobertura: build/coverage.xml
 
 build_install:
   stage: test

@@ -27,7 +27,7 @@ show_missing = true
 
 [tool.coverage.run]
 branch = true
-command_line = "-m pytest -vv tests/"
+command_line = "-m pytest --junit-xml=build/junit-report.xml -vv tests/"
 omit = ["tests/*", ".tox/*"]
 
 [tool.isort]
