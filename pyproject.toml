@@ -17,8 +17,8 @@ exclude = '''
 )/
 '''
 
-[tool.coverage.path]
-source = "."
+[tool.coverage.paths]
+source = ["libkeyringctl"]
 
 [tool.coverage.report]
 omit = ["tests/*", ".tox/*"]
@@ -29,6 +29,10 @@ show_missing = true
 branch = true
 command_line = "-m pytest --junit-xml=build/junit-report.xml -vv tests/"
 omit = ["tests/*", ".tox/*"]
+relative_files = true
+
+[tool.coverage.xml]
+output = "build/coverage.xml"
 
 [tool.isort]
 profile = "black"

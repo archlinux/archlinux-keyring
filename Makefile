@@ -17,7 +17,7 @@ fmt:
 test:
 	coverage run
 	coverage report
-	coverage xml -o build/coverage.xml
+	coverage xml
 
 build:
 	./keyringctl -v build
