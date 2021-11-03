@@ -18,12 +18,15 @@ from libkeyringctl.keyring import simplify_user_id
 from libkeyringctl.sequoia import certify
 from libkeyringctl.sequoia import key_extract_certificate
 from libkeyringctl.sequoia import key_generate
+from libkeyringctl.sequoia import keyring_merge
+from libkeyringctl.sequoia import packet_join
 from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 from libkeyringctl.util import cwd
 
 test_keys: Dict[Username, List[Path]] = defaultdict(list)
+test_key_revocation: Dict[Username, List[Path]] = defaultdict(list)
 test_certificates: Dict[Username, List[Path]] = defaultdict(list)
 test_keyring_certificates: Dict[Username, List[Path]] = defaultdict(list)
 test_main_fingerprints: Set[Fingerprint] = set()
@@ -32,6 +35,7 @@ test_main_fingerprints: Set[Fingerprint] = set()
 @fixture(autouse=True)
 def reset_storage() -> None:
     test_keys.clear()
+    test_key_revocation.clear()
     test_certificates.clear()
     test_keyring_certificates.clear()
     test_main_fingerprints.clear()
@@ -64,6 +68,13 @@ def create_certificate(
 
             key_extract_certificate(key=key_file, output=certificate_file)
             test_certificates[username].append(certificate_file)
+
+            key_revocation_packet = key_file.parent / f"{key_file.name}.rev"
+            key_revocation_joined = key_file.parent / f"{key_file.name}.joined.rev"
+            key_revocation_cert = key_file.parent / f"{key_file.name}.cert.rev"
+            packet_join(packets=[certificate_file, key_revocation_packet], output=key_revocation_joined)
+            keyring_merge(certificates=[key_revocation_joined], output=key_revocation_cert)
+            test_key_revocation[username].append(key_revocation_cert)
 
             target_dir = keyring_root / keyring_type
 
@@ -115,6 +126,39 @@ def create_uid_certification(
             output.parent.mkdir(parents=True, exist_ok=True)
 
             certify(key, certificate, uid, output)
+
+            decorated_func(working_dir=working_dir, *args, **kwargs)
+
+        return wrapper
+
+    if not func:
+        return decorator
+    return decorator(func)
+
+
+def create_key_revocation(
+    username: Username,
+    keyring_type: str = "packager",
+    func: Optional[Callable[..., Any]] = None,
+) -> Callable[..., Any]:
+    def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
+        @wraps(decorated_func)
+        def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
+
+            revocation = test_key_revocation[username][0]
+
+            keyring_root: Path = working_dir / "keyring"
+            keyring_root.mkdir(parents=True, exist_ok=True)
+            target_dir = keyring_root / keyring_type
+
+            decomposed_path: Path = convert_certificate(
+                working_dir=working_dir,
+                certificate=revocation,
+                keyring_dir=keyring_root / keyring_type,
+            )
+            user_dir = decomposed_path.parent
+            (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
+            copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
 
             decorated_func(working_dir=working_dir, *args, **kwargs)
 
