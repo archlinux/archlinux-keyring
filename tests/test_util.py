@@ -3,6 +3,7 @@ from os import getcwd
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from tempfile import TemporaryDirectory
+from typing import Dict
 from typing import List
 from unittest.mock import Mock
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from pytest import raises
 
 from libkeyringctl import util
 from libkeyringctl.types import Fingerprint
+from libkeyringctl.types import Trust
 
 
 def test_cwd() -> None:
@@ -93,7 +95,7 @@ def test_get_cert_paths() -> None:
         cert2 = cert_dir2 / "cert2.asc"
         cert2.touch()
 
-        assert util.get_cert_paths(paths=[tmp_dir]) == set([cert_dir1, cert_dir2])
+        assert util.get_cert_paths(paths=[tmp_dir]) == {cert_dir1, cert_dir2}
 
 
 def test_get_parent_cert_paths() -> None:
@@ -112,7 +114,7 @@ def test_get_parent_cert_paths() -> None:
         cert2 = cert_dir2 / "cert2.asc"
         cert2.touch()
 
-        assert util.get_parent_cert_paths(paths=[cert1, cert2]) == set([cert_dir1])
+        assert util.get_parent_cert_paths(paths=[cert1, cert2]) == {cert_dir1}
 
 
 @mark.parametrize(
@@ -132,3 +134,50 @@ def test_get_parent_cert_paths() -> None:
 )
 def test_contains_fingerprint(fingerprints: List[Fingerprint], fingerprint: Fingerprint, result: bool) -> None:
     assert util.contains_fingerprint(fingerprints=fingerprints, fingerprint=fingerprint) is result
+
+
+@mark.parametrize(
+    "fingerprints, fingerprint, result",
+    [
+        ([Fingerprint("blahfoo"), Fingerprint("blahbar")], Fingerprint("foo"), Fingerprint("blahfoo")),
+        ([Fingerprint("blahfoo"), Fingerprint("blahbar")], Fingerprint("blahfoo"), Fingerprint("blahfoo")),
+        (
+            [Fingerprint("bazfoo"), Fingerprint("bazbar")],
+            Fingerprint("baz"),
+            None,
+        ),
+    ],
+)
+def test_get_fingerprint_from_partial(fingerprints: List[Fingerprint], fingerprint: Fingerprint, result: bool) -> None:
+    assert util.get_fingerprint_from_partial(fingerprints=fingerprints, fingerprint=fingerprint) is result
+
+
+@mark.parametrize(
+    "trusts, trust, result",
+    [
+        (
+            {Fingerprint("foo"): Trust.full, Fingerprint("bar"): Trust.marginal},
+            Trust.full,
+            [Fingerprint("foo")],
+        ),
+        (
+            {Fingerprint("foo"): Trust.full, Fingerprint("bar"): Trust.full},
+            Trust.full,
+            [Fingerprint("foo"), Fingerprint("bar")],
+        ),
+        (
+            {Fingerprint("foo"): Trust.full, Fingerprint("bar"): Trust.marginal},
+            Trust.unknown,
+            [],
+        ),
+        (
+            {},
+            Trust.unknown,
+            [],
+        ),
+    ],
+)
+def test_filter_fingerprints_by_trust(
+    trusts: Dict[Fingerprint, Trust], trust: Trust, result: List[Fingerprint]
+) -> None:
+    assert util.filter_fingerprints_by_trust(trusts=trusts, trust=trust) == result

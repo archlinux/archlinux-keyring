@@ -86,7 +86,12 @@ def natural_sort_path(_list: Iterable[Path]) -> Iterable[Path]:
     return sorted(_list, key=alphanum_key)
 
 
-def system(cmd: List[str], _stdin: Optional[IO[AnyStr]] = None, exit_on_error: bool = False) -> str:
+def system(
+    cmd: List[str],
+    _stdin: Optional[IO[AnyStr]] = None,
+    exit_on_error: bool = False,
+    env: Optional[Dict[str, str]] = None,
+) -> str:
     """Execute a command using check_output
 
     Parameters
@@ -94,6 +99,7 @@ def system(cmd: List[str], _stdin: Optional[IO[AnyStr]] = None, exit_on_error: b
     cmd: A list of strings to be fed to check_output
     _stdin: input fd used for the spawned process
     exit_on_error: Whether to exit the script when encountering an error (defaults to False)
+    env: Optional environment vars for the shell invocation
 
     Raises
     ------
@@ -103,9 +109,11 @@ def system(cmd: List[str], _stdin: Optional[IO[AnyStr]] = None, exit_on_error: b
     -------
     The output of cmd
     """
+    if not env:
+        env = {}
 
     try:
-        return check_output(cmd, stderr=STDOUT, stdin=_stdin).decode()
+        return check_output(cmd, stderr=STDOUT, stdin=_stdin, env=env).decode()
     except CalledProcessError as e:
         stderr.buffer.write(bytes(e.stdout, encoding="utf8"))
         print_stack()
@@ -213,6 +221,26 @@ def contains_fingerprint(fingerprints: Iterable[Fingerprint], fingerprint: Finge
     """
 
     return any(filter(lambda e: str(e).endswith(fingerprint), fingerprints))
+
+
+def get_fingerprint_from_partial(
+    fingerprints: Iterable[Fingerprint], fingerprint: Fingerprint
+) -> Optional[Fingerprint]:
+    """Returns the full fingerprint looked up from a partial fingerprint like a key-id
+
+    Parameters
+    ----------
+    fingerprints: Iteratable structure of fingerprints that should be searched
+    fingerprint: Partial fingerprint to search for
+
+    Returns
+    -------
+    The full fingerprint or None
+    """
+
+    for fingerprint in filter(lambda e: str(e).endswith(fingerprint), fingerprints):
+        return fingerprint
+    return None
 
 
 def filter_fingerprints_by_trust(trusts: Dict[Fingerprint, Trust], trust: Trust) -> List[Fingerprint]:

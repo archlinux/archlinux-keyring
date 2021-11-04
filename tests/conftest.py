@@ -2,6 +2,9 @@ from collections import defaultdict
 from functools import wraps
 from pathlib import Path
 from shutil import copytree
+from subprocess import PIPE
+from subprocess import Popen
+from tempfile import NamedTemporaryFile
 from tempfile import TemporaryDirectory
 from typing import Any
 from typing import Callable
@@ -14,6 +17,7 @@ from typing import Set
 from pytest import fixture
 
 from libkeyringctl.keyring import convert_certificate
+from libkeyringctl.keyring import export
 from libkeyringctl.keyring import simplify_user_id
 from libkeyringctl.sequoia import certify
 from libkeyringctl.sequoia import key_extract_certificate
@@ -24,12 +28,15 @@ from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 from libkeyringctl.util import cwd
+from libkeyringctl.util import system
 
 test_keys: Dict[Username, List[Path]] = defaultdict(list)
 test_key_revocation: Dict[Username, List[Path]] = defaultdict(list)
 test_certificates: Dict[Username, List[Path]] = defaultdict(list)
+test_certificate_uids: Dict[Username, List[List[Uid]]] = defaultdict(list)
 test_keyring_certificates: Dict[Username, List[Path]] = defaultdict(list)
 test_main_fingerprints: Set[Fingerprint] = set()
+test_all_fingerprints: Set[Fingerprint] = set()
 
 
 @fixture(autouse=True)
@@ -37,8 +44,10 @@ def reset_storage() -> None:
     test_keys.clear()
     test_key_revocation.clear()
     test_certificates.clear()
+    test_certificate_uids.clear()
     test_keyring_certificates.clear()
     test_main_fingerprints.clear()
+    test_all_fingerprints.clear()
 
 
 def create_certificate(
@@ -50,16 +59,14 @@ def create_certificate(
     def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
         @wraps(decorated_func)
         def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
-            print(username)
-
-            key_directory = working_dir / "secret" / f"{id}"
+            key_directory = working_dir / "secret" / f"{username}"
             key_directory.mkdir(parents=True, exist_ok=True)
 
             key_file: Path = key_directory / f"{username}.asc"
             key_generate(uids=uids, outfile=key_file)
             test_keys[username].append(key_file)
 
-            certificate_directory = working_dir / "certificate" / f"{id}"
+            certificate_directory = working_dir / "certificate" / f"{username}"
             certificate_directory.mkdir(parents=True, exist_ok=True)
 
             keyring_root: Path = working_dir / "keyring"
@@ -68,6 +75,7 @@ def create_certificate(
 
             key_extract_certificate(key=key_file, output=certificate_file)
             test_certificates[username].append(certificate_file)
+            test_certificate_uids[username].append(uids)
 
             key_revocation_packet = key_file.parent / f"{key_file.name}.rev"
             key_revocation_joined = key_file.parent / f"{key_file.name}.joined.rev"
@@ -88,8 +96,10 @@ def create_certificate(
             copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
             test_keyring_certificates[username].append(target_dir / user_dir.name / decomposed_path.name)
 
+            certificate_fingerprint: Fingerprint = Fingerprint(decomposed_path.name)
             if "main" == keyring_type:
-                test_main_fingerprints.add(Fingerprint(decomposed_path.name))
+                test_main_fingerprints.add(certificate_fingerprint)
+            test_all_fingerprints.add(certificate_fingerprint)
 
             decorated_func(working_dir=working_dir, *args, **kwargs)
 
@@ -159,6 +169,95 @@ def create_key_revocation(
             user_dir = decomposed_path.parent
             (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
             copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
+
+            decorated_func(working_dir=working_dir, *args, **kwargs)
+
+        return wrapper
+
+    if not func:
+        return decorator
+    return decorator(func)
+
+
+def create_signature_revocation(
+    issuer: Username, certified: Username, uid: Uid, func: Optional[Callable[[Any], None]] = None
+) -> Callable[..., Any]:
+    def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
+        @wraps(decorated_func)
+        def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
+
+            issuer_key: Path = test_keys[issuer][0]
+            keyring_root: Path = working_dir / "keyring"
+
+            keyring_certificate: Path = test_keyring_certificates[certified][0]
+            certified_fingerprint = keyring_certificate.name
+
+            with NamedTemporaryFile(dir=str(working_dir), prefix=f"{certified}", suffix=".asc") as certificate:
+                certificate_path: Path = Path(certificate.name)
+                export(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    sources=[keyring_certificate],
+                    output=certificate_path,
+                )
+
+                with TemporaryDirectory(prefix="gnupg") as gnupg_home:
+                    env = {"GNUPGHOME": gnupg_home}
+
+                    print(
+                        system(
+                            [
+                                "gpg",
+                                "--no-auto-check-trustdb",
+                                "--import",
+                                f"{str(issuer_key)}",
+                                f"{str(certificate_path)}",
+                            ],
+                            env=env,
+                        )
+                    )
+
+                    uid_confirmations = ""
+                    for cert_uid in test_certificate_uids[certified][0]:
+                        if uid == cert_uid:
+                            uid_confirmations += "y\n"
+                        else:
+                            uid_confirmations += "n\n"
+
+                    commands = Popen(["echo", "-e", f"{uid_confirmations}y\n0\ny\n\ny\ny\nsave\n"], stdout=PIPE)
+                    system(
+                        [
+                            "gpg",
+                            "--no-auto-check-trustdb",
+                            "--command-fd",
+                            "0",
+                            "--expert",
+                            "--yes",
+                            "--batch",
+                            "--edit-key",
+                            f"{certified_fingerprint}",
+                            "revsig",
+                            "save",
+                        ],
+                        _stdin=commands.stdout,
+                        env=env,
+                    )
+
+                    revoked_certificate = system(["gpg", "--armor", "--export", f"{certified_fingerprint}"], env=env)
+                    certificate.truncate(0)
+                    certificate.seek(0)
+                    certificate.write(revoked_certificate.encode())
+                    certificate.flush()
+
+                    target_dir = keyring_root / "packager"
+                    decomposed_path: Path = convert_certificate(
+                        working_dir=working_dir,
+                        certificate=certificate_path,
+                        keyring_dir=target_dir,
+                    )
+                    user_dir = decomposed_path.parent
+                    (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
+                    copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
 
             decorated_func(working_dir=working_dir, *args, **kwargs)
 

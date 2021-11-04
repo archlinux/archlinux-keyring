@@ -4,6 +4,7 @@ from logging import debug
 from pathlib import Path
 from typing import Dict
 from typing import Iterable
+from typing import Optional
 from typing import Set
 
 from .types import Color
@@ -12,9 +13,12 @@ from .types import Trust
 from .types import Uid
 from .util import contains_fingerprint
 from .util import get_cert_paths
+from .util import get_fingerprint_from_partial
 
 
-def certificate_trust_from_paths(sources: Iterable[Path], main_keys: Set[Fingerprint]) -> Dict[Fingerprint, Trust]:
+def certificate_trust_from_paths(
+    sources: Iterable[Path], main_keys: Set[Fingerprint], all_fingerprints: Set[Fingerprint]
+) -> Dict[Fingerprint, Trust]:
     """Get the trust status of all certificates in a list of paths given by main keys.
 
     Uses `get_get_certificate_trust` to determine the trust status.
@@ -23,6 +27,7 @@ def certificate_trust_from_paths(sources: Iterable[Path], main_keys: Set[Fingerp
     ----------
     sources: Certificates to acquire the trust status from
     main_keys: Fingerprints of trusted keys used to calculate the trust of the certificates from sources
+    all_fingerprints: Fingerprints of all certificates, packager and main, to look up key-ids to full fingerprints
 
     Returns
     -------
@@ -34,11 +39,15 @@ def certificate_trust_from_paths(sources: Iterable[Path], main_keys: Set[Fingerp
 
     for certificate in sorted(sources):
         fingerprint = Fingerprint(certificate.name)
-        certificate_trusts[fingerprint] = certificate_trust(certificate=certificate, main_keys=main_keys)
+        certificate_trusts[fingerprint] = certificate_trust(
+            certificate=certificate, main_keys=main_keys, all_fingerprints=all_fingerprints
+        )
     return certificate_trusts
 
 
-def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust:  # noqa: ignore=C901
+def certificate_trust(  # noqa: ignore=C901
+    certificate: Path, main_keys: Set[Fingerprint], all_fingerprints: Set[Fingerprint]
+) -> Trust:
     """Get the trust status of a certificates given by main keys.
 
     main certificates are:
@@ -67,6 +76,7 @@ def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust: 
     ----------
     certificate: Certificate to acquire the trust status from
     main_keys: Fingerprints of trusted keys used to calculate the trust of the certificates from sources
+    all_fingerprints: Fingerprints of all certificates, packager and main, to look up key-ids to full fingerprints
 
     Returns
     -------
@@ -78,10 +88,13 @@ def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust: 
     revocations: Set[Fingerprint] = set()
     # TODO: what about direct key revocations/signatures?
     for revocation in certificate.glob("revocation/*.asc"):
-        issuer: Fingerprint = Fingerprint(revocation.stem)
-        if fingerprint.endswith(issuer):
-            debug(f"Revoking {fingerprint} due to self-revocation")
-            revocations.add(fingerprint)
+        issuer: Optional[Fingerprint] = get_fingerprint_from_partial(all_fingerprints, Fingerprint(revocation.stem))
+        if not issuer:
+            raise Exception(f"Unknown issuer: {issuer}")
+        if not fingerprint.endswith(issuer):
+            raise Exception(f"Wrong root revocation issuer: {issuer}, expected: {fingerprint}")
+        debug(f"Revoking {fingerprint} due to self-revocation")
+        revocations.add(fingerprint)
 
     if revocations:
         return Trust.revoked
@@ -92,26 +105,28 @@ def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust: 
         return Trust.full
 
     uid_trust: Dict[Uid, Trust] = {}
+    self_revoked_uids: Set[Uid] = set()
     uids = certificate / "uid"
     for uid_path in uids.iterdir():
         uid: Uid = Uid(uid_path.name)
 
-        # TODO: convert key-id to fingerprint otherwise it may contain duplicates
         revocations = set()
-        self_revoked = False
         for revocation in uid_path.glob("revocation/*.asc"):
-            issuer = Fingerprint(revocation.stem)
+            issuer = get_fingerprint_from_partial(all_fingerprints, Fingerprint(revocation.stem))
+            if not issuer:
+                raise Exception(f"Unknown issuer: {issuer}")
             # self revocation
             if fingerprint.endswith(issuer):
-                self_revoked = True
+                self_revoked_uids.add(uid)
             # main key revocation
             elif contains_fingerprint(fingerprints=main_keys, fingerprint=issuer):
                 revocations.add(issuer)
 
-        # TODO: convert key-id to fingerprint otherwise it may contain duplicates
         certifications: Set[Fingerprint] = set()
         for certification in uid_path.glob("certification/*.asc"):
-            issuer = Fingerprint(certification.stem)
+            issuer = get_fingerprint_from_partial(all_fingerprints, Fingerprint(certification.stem))
+            if not issuer:
+                raise Exception(f"Unknown issuer: {issuer}")
             # only take main key certifications into account
             if not contains_fingerprint(fingerprints=main_keys, fingerprint=issuer):
                 continue
@@ -121,7 +136,7 @@ def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust: 
             certifications.add(issuer)
 
         # self revoked uid
-        if self_revoked:
+        if uid in self_revoked_uids:
             debug(f"Certificate {fingerprint} with uid {uid} is self-revoked")
             uid_trust[uid] = Trust.revoked
             continue
@@ -152,8 +167,7 @@ def certificate_trust(certificate: Path, main_keys: Set[Fingerprint]) -> Trust: 
     if any(map(lambda t: Trust.full == t, uid_trust.values())):
         trust = Trust.full
     # no uid has full trust but at least one is revoked
-    # TODO: only revoked if it contains main key revocations, not just self-revocation
-    elif any(map(lambda t: Trust.revoked == t, uid_trust.values())):
+    elif any(map(lambda e: Trust.revoked == e[1] and e[0] not in self_revoked_uids, uid_trust.items())):
         trust = Trust.revoked
     # no uid has full trust or is revoked
     elif any(map(lambda t: Trust.marginal == t, uid_trust.values())):

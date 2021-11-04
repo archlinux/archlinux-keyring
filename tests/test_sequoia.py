@@ -55,26 +55,22 @@ def test_keyring_split(mkdtemp_mock: Mock, system_mock: Mock, create_subdir: boo
 
 
 @mark.parametrize(
-    "force, output",
+    "output",
     [
-        (True, None),
-        (False, None),
-        (True, Path("output")),
-        (False, Path("output")),
+        None,
+        Path("output"),
     ],
 )
 @patch("libkeyringctl.sequoia.system")
-def test_keyring_merge(system_mock: Mock, force: bool, output: Optional[Path]) -> None:
+def test_keyring_merge(system_mock: Mock, output: Optional[Path]) -> None:
     certificates = [Path("foo"), Path("bar")]
     system_mock.return_value = "return"
 
-    assert sequoia.keyring_merge(certificates=certificates, output=output, force=force) == "return"
+    assert sequoia.keyring_merge(certificates=certificates, output=output) == "return"
 
     name, args, kwargs = system_mock.mock_calls[0]
     for cert in certificates:
         assert str(cert) in args[0]
-    if force:
-        assert "--force" == args[0][1]
     if output:
         assert "--output" in args[0] and str(output) in args[0]
 

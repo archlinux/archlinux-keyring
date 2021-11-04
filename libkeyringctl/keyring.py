@@ -196,7 +196,9 @@ def convert_certificate(  # noqa: ignore=C901
                 if signature_type == "CertificationRevocation":
                     revocations[current_packet_uid][issuer].append(packet)
                 elif signature_type.endswith("Certification"):
-                    if fingerprint_filter is not None and any([fp.endswith(issuer) for fp in fingerprint_filter]):
+                    # TODO: extend fp filter to all certifications
+                    # TODO: use contains_fingerprint
+                    if fingerprint_filter is None or any([fp.endswith(issuer) for fp in fingerprint_filter]):
                         debug(f"The certification by issuer {issuer} is appended as it is found in the filter.")
                         certifications[current_packet_uid][issuer].append(packet)
                     else:
@@ -587,7 +589,7 @@ def convert(
     return target_dir
 
 
-def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
+def export_ownertrust(certs: List[Path], keyring_root: Path, output: Path) -> List[Fingerprint]:
     """Export ownertrust from a set of keys and return the trusted and revoked fingerprints
 
     The output file format is compatible with `gpg --import-ownertrust` and lists the main fingerprint ID of all
@@ -598,6 +600,7 @@ def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
     Parameters
     ----------
     certs: The certificates to trust
+    keyring_root: The keyring root directory to get all accepted fingerprints from
     output: The file path to write to
 
     Returns
@@ -605,7 +608,11 @@ def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
     List of ownertrust fingerprints
     """
 
-    main_trusts = certificate_trust_from_paths(sources=certs, main_keys=get_fingerprints_from_paths(sources=certs))
+    main_trusts = certificate_trust_from_paths(
+        sources=certs,
+        main_keys=get_fingerprints_from_paths(sources=certs),
+        all_fingerprints=get_fingerprints_from_paths([keyring_root]),
+    )
     trusted_certs: List[Fingerprint] = filter_fingerprints_by_trust(main_trusts, Trust.full)
 
     with open(file=output, mode="w") as trusted_certs_file:
@@ -616,7 +623,7 @@ def export_ownertrust(certs: List[Path], output: Path) -> List[Fingerprint]:
     return trusted_certs
 
 
-def export_revoked(certs: List[Path], main_keys: Set[Fingerprint], output: Path) -> None:
+def export_revoked(certs: List[Path], keyring_root: Path, main_keys: Set[Fingerprint], output: Path) -> None:
     """Export the PGP revoked status from a set of keys
 
     The output file contains the fingerprints of all self-revoked keys and all keys for which at least two revocations
@@ -627,11 +634,16 @@ def export_revoked(certs: List[Path], main_keys: Set[Fingerprint], output: Path)
     Parameters
     ----------
     certs: A list of directories with keys to check for their revocation status
+    keyring_root: The keyring root directory to get all accepted fingerprints from
     main_keys: A list of strings representing the fingerprints of (current and/or revoked) main keys
     output: The file path to write to
     """
 
-    certificate_trusts = certificate_trust_from_paths(sources=certs, main_keys=main_keys)
+    certificate_trusts = certificate_trust_from_paths(
+        sources=certs,
+        main_keys=main_keys,
+        all_fingerprints=get_fingerprints_from_paths([keyring_root]),
+    )
     revoked_certs: List[Fingerprint] = filter_fingerprints_by_trust(certificate_trusts, Trust.revoked)
 
     with open(file=output, mode="w") as revoked_certs_file:
@@ -839,10 +851,12 @@ def build(
 
     trusted_main_keys = export_ownertrust(
         certs=[keyring_root / "main"],
+        keyring_root=keyring_root,
         output=target_dir / "archlinux-trusted",
     )
     export_revoked(
         certs=[keyring_root],
+        keyring_root=keyring_root,
         main_keys=set(trusted_main_keys),
         output=target_dir / "archlinux-revoked",
     )
@@ -877,7 +891,9 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     for certificate in sources:
         username: Username = Username(certificate.parent.name)
         trust = certificate_trust(
-            certificate=certificate, main_keys=get_fingerprints_from_paths([keyring_root / "main"])
+            certificate=certificate,
+            main_keys=get_fingerprints_from_paths([keyring_root / "main"]),
+            all_fingerprints=get_fingerprints_from_paths([keyring_root]),
         )
         trust_label = format_trust_label(trust=trust)
         print(f"{username:<{username_length}} {certificate.name} {trust_label}")
