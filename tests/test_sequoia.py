@@ -15,6 +15,7 @@ from pytest import raises
 
 from libkeyringctl import sequoia
 from libkeyringctl.types import Fingerprint
+from libkeyringctl.types import PacketKind
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 
@@ -203,6 +204,22 @@ def test_packet_signature_creation_time(packet_dump_field_mock: Mock) -> None:
     assert sequoia.packet_signature_creation_time(packet=Path("packet")) == datetime.strptime(
         creation_time, "%Y-%m-%d %H:%M:%S %Z"
     )
+
+
+@patch("libkeyringctl.sequoia.packet_dump")
+def test_packet_kinds(packet_dump_mock: Mock) -> None:
+    lines = [
+        "Type1 something",
+        " foo",
+        "Type2",
+        "WARNING",
+        "Type3  other",
+        " bar",
+    ]
+    path = Path("foo")
+    packet_dump_mock.return_value = "\n".join(lines)
+
+    assert sequoia.packet_kinds(packet=path) == [PacketKind("Type1"), PacketKind("Type2"), PacketKind("Type3")]
 
 
 @patch("libkeyringctl.sequoia.packet_signature_creation_time")
