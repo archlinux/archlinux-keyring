@@ -35,6 +35,7 @@ from .types import Username
 from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
 from .util import system
+from .util import get_fingerprint_from_partial
 from .util import transform_fd_to_tmpfile
 
 
@@ -176,7 +177,13 @@ def convert_certificate(  # noqa: ignore=C901
             if not certificate_fingerprint:
                 raise Exception('missing certificate fingerprint for "{packet.name}"')
 
-            issuer: Fingerprint = Fingerprint(packet_dump_field(packet, "Issuer"))
+            issuer = get_fingerprint_from_partial(
+                fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Issuer"))
+            )
+            if not issuer:
+                debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")
+                continue
+
             signature_type = packet_dump_field(packet, "Type")
 
             if current_packet_mode == "pubkey":
@@ -208,6 +215,12 @@ def convert_certificate(  # noqa: ignore=C901
             elif current_packet_mode == "subkey":
                 if not current_packet_fingerprint:
                     raise Exception('missing current packet fingerprint for "{packet.name}"')
+
+                issuer = get_fingerprint_from_partial(
+                    fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Issuer"))
+                )
+                if issuer != certificate_fingerprint:
+                    raise Exception(f"subkey packet does not belong to {certificate_fingerprint}, issuer: {issuer}")
 
                 if signature_type == "SubkeyBinding":
                     subkey_bindings[current_packet_fingerprint].append(packet)
@@ -260,11 +273,13 @@ def convert_certificate(  # noqa: ignore=C901
     persist_subkey_bindings(
         key_dir=key_dir,
         subkey_bindings=subkey_bindings,
+        issuer=certificate_fingerprint,
     )
 
     persist_subkey_revocations(
         key_dir=key_dir,
         subkey_revocations=subkey_revocations,
+        issuer=certificate_fingerprint,
     )
 
     persist_uids(
@@ -350,6 +365,7 @@ def persist_subkeys(
 def persist_subkey_bindings(
     key_dir: Path,
     subkey_bindings: Dict[Fingerprint, List[Path]],
+    issuer: Fingerprint,
 ) -> None:
     """Persist all SubkeyBinding of a root key file to file(s)
 
@@ -357,11 +373,11 @@ def persist_subkey_bindings(
     ----------
     key_dir: The root directory below which the basic key material is persisted
     subkey_bindings: The SubkeyBinding signatures of a Public-Subkey
+    issuer: Fingerprint of the issuer
     """
 
     for fingerprint, bindings in subkey_bindings.items():
         subkey_binding = latest_certification(bindings)
-        issuer = packet_dump_field(subkey_binding, "Issuer")
         output_file = key_dir / "subkey" / fingerprint / "certification" / f"{issuer}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {str(subkey_binding)}")
@@ -371,6 +387,7 @@ def persist_subkey_bindings(
 def persist_subkey_revocations(
     key_dir: Path,
     subkey_revocations: Dict[Fingerprint, List[Path]],
+    issuer: Fingerprint,
 ) -> None:
     """Persist the SubkeyRevocations of all Public-Subkeys of a root key to file(s)
 
@@ -378,11 +395,11 @@ def persist_subkey_revocations(
     ----------
     key_dir: The root directory below which the basic key material is persisted
     subkey_revocations: The SubkeyRevocations of PublicSubkeys of a key
+    issuer: Fingerprint of the issuer
     """
 
     for fingerprint, revocations in subkey_revocations.items():
         revocation = latest_certification(revocations)
-        issuer = packet_dump_field(revocation, "Issuer")
         output_file = key_dir / "subkey" / fingerprint / "revocation" / f"{issuer}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {revocation}")

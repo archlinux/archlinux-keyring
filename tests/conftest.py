@@ -18,6 +18,7 @@ from pytest import fixture
 
 from libkeyringctl.keyring import convert_certificate
 from libkeyringctl.keyring import export
+from libkeyringctl.keyring import get_fingerprints_from_keyring_files
 from libkeyringctl.keyring import simplify_user_id
 from libkeyringctl.sequoia import certify
 from libkeyringctl.sequoia import key_extract_certificate
@@ -86,10 +87,16 @@ def create_certificate(
 
             target_dir = keyring_root / keyring_type
 
+            for fingerprint in get_fingerprints_from_keyring_files(
+                working_dir=working_dir, source=[certificate_file]
+            ).keys():
+                test_all_fingerprints.add(fingerprint)
+
             decomposed_path: Path = convert_certificate(
                 working_dir=working_dir,
                 certificate=certificate_file,
                 keyring_dir=keyring_root / keyring_type,
+                fingerprint_filter=test_all_fingerprints,
             )
             user_dir = decomposed_path.parent
             (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
@@ -165,6 +172,7 @@ def create_key_revocation(
                 working_dir=working_dir,
                 certificate=revocation,
                 keyring_dir=keyring_root / keyring_type,
+                fingerprint_filter=test_all_fingerprints,
             )
             user_dir = decomposed_path.parent
             (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
@@ -254,6 +262,7 @@ def create_signature_revocation(
                         working_dir=working_dir,
                         certificate=certificate_path,
                         keyring_dir=target_dir,
+                        fingerprint_filter=test_all_fingerprints,
                     )
                     user_dir = decomposed_path.parent
                     (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
