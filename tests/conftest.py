@@ -1,7 +1,13 @@
 from collections import defaultdict
 from functools import wraps
 from pathlib import Path
+from random import choice
+from random import randint
 from shutil import copytree
+from string import ascii_letters
+from string import digits
+from string import hexdigits
+from string import punctuation
 from subprocess import PIPE
 from subprocess import Popen
 from tempfile import NamedTemporaryFile
@@ -288,3 +294,53 @@ def working_dir() -> Generator[Path, None, None]:
 @fixture(scope="function")
 def keyring_dir(working_dir: Path) -> Generator[Path, None, None]:
     yield working_dir / "keyring"
+
+
+def random_string(length: int, chars: str) -> str:
+    return "".join(choice(chars) for x in range(length))
+
+
+@fixture(scope="function", params=[16, 40], ids=["short_id", "long_id"])
+def valid_fingerprint(request: Any) -> Generator[str, None, None]:
+    yield random_string(length=request.param, chars="ABCDEF" + digits)
+
+
+@fixture(scope="function", params=[16, 40], ids=["short_id", "long_id"])
+def valid_subkey_fingerprint(request: Any) -> Generator[str, None, None]:
+    yield random_string(length=request.param, chars="ABCDEF" + digits)
+
+
+@fixture(
+    scope="function",
+    params=[
+        (
+            16,
+            ascii_letters + hexdigits + punctuation,
+        ),
+        (
+            40,
+            ascii_letters + hexdigits + punctuation,
+        ),
+        (
+            randint(0, 15),
+            "ABCDEF" + digits,
+        ),
+        (
+            randint(17, 39),
+            "ABCDEF" + digits,
+        ),
+        (
+            randint(41, 100),
+            "ABCDEF" + digits,
+        ),
+    ],
+    ids=[
+        "short_id_wrong_chars",
+        "long_id_wrong_chars",
+        "right_chars_shorter_than_short_id",
+        "right_chars_shorter_than_long_id_longer_than_short_id",
+        "right_chars_longer_than_long_id",
+    ],
+)
+def invalid_fingerprint(request: Any) -> Generator[str, None, None]:
+    yield random_string(length=request.param[0], chars=request.param[1])
