@@ -23,7 +23,7 @@ test:
   stage: test
   needs: []
   before_script:
-    - pacman -Syu --needed --noconfirm make python sequoia-sq python-coverage python-pytest
+    - pacman -Syu --needed --noconfirm make python sequoia-sq python-coverage python-pytest python-tomli
   script:
     - make test
   only:

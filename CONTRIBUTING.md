@@ -33,6 +33,7 @@ and develop this project:
 * python-coverage
 * python-isort
 * python-pytest
+* python-tomli
 * flake8
 * mypy
 
