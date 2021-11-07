@@ -37,6 +37,7 @@ from .conftest import test_main_fingerprints
 def test_certificate_trust_from_paths(
     certificate_trust_mock: Mock,
     sources: List[Path],
+    working_dir: Path,
 ) -> None:
     certificate_trust_mock.return_value = Trust.full
     for source in sources:
