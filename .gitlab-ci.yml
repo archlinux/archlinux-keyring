@@ -53,3 +53,21 @@ build_install:
     - pacman-key --populate archlinux
     - pacman-key --updatedb
     - pacman -Syu
+
+keyring_check:
+  stage: test
+  needs: []
+  before_script:
+    - pacman -Syu --needed --noconfirm make python sequoia-sq
+  script:
+    - ./keyringctl import --main master master-revoked
+    - ./keyringctl import packager packager-revoked
+    - ./keyringctl check
+  only:
+    changes:
+      - keyring
+      - keyringctl
+      - libkeyringctl/*
+      - tests/*
+      - .gitlab-ci.yml
+      - Makefile

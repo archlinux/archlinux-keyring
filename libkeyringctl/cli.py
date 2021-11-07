@@ -115,6 +115,11 @@ verify_parser.add_argument(
 )
 verify_parser.set_defaults(lint_hokey=True, lint_sq_keyring=True)
 
+check_parser = subcommands.add_parser(
+    "check",
+    help="Run keyring integrity and consistency checks",
+)
+
 ci_parser = subcommands.add_parser(
     "ci",
     help="ci command to verify certain aspects and expectations in pipelines",
@@ -199,6 +204,14 @@ def main() -> None:  # noqa: ignore=C901
                 )
             elif "ci" == args.subcommand:
                 ci(working_dir=working_dir, keyring_root=keyring_root, project_root=project_root)
+            elif "check" == args.subcommand:
+                verify(
+                    working_dir=working_dir,
+                    keyring_root=keyring_root,
+                    sources=[keyring_root],
+                    lint_hokey=False,
+                    lint_sq_keyring=False,
+                )
             else:
                 parser.print_help()
 

@@ -56,3 +56,8 @@ To execute all tests using pytest
 ```bash
 make test
 ```
+
+To run keyring integrity and consistency checks
+```bash
+make check
+```

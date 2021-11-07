@@ -14,6 +14,9 @@ fmt:
 	black .
 	isort .
 
+check:
+	./keyringctl -v check
+
 test:
 	coverage run
 	coverage report
