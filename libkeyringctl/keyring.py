@@ -9,8 +9,6 @@ from re import escape
 from re import match
 from re import sub
 from shutil import copytree
-from subprocess import PIPE
-from subprocess import Popen
 from tempfile import NamedTemporaryFile
 from tempfile import mkdtemp
 from typing import Dict
@@ -34,7 +32,6 @@ from .types import Uid
 from .types import Username
 from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
-from .util import system
 from .util import get_fingerprint_from_partial
 from .util import transform_fd_to_tmpfile
 
@@ -953,55 +950,6 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
             certifications=True,
             fingerprints=fingerprints,
         )
-
-
-def verify(
-    working_dir: Path,
-    keyring_root: Path,
-    sources: Optional[List[Path]],
-    lint_hokey: bool = True,
-    lint_sq_keyring: bool = True,
-) -> None:
-    """Verify certificates against modern expectations using sq-keyring-linter and hokey
-
-    Parameters
-    ----------
-    working_dir: A directory to use for temporary files
-    keyring_root: The keyring root directory to look up username shorthand sources
-    sources: A list of username, fingerprint or directories from which to read PGP packet information
-        (defaults to `keyring_root`)
-    lint_hokey: Whether to run hokey lint
-    lint_sq_keyring: Whether to run sq-keyring-linter
-    """
-
-    if not sources:
-        sources = [keyring_root]
-
-    # transform shorthand paths to actual keyring paths
-    transform_username_to_keyring_path(keyring_dir=keyring_root / "packager", paths=sources)
-    transform_fingerprint_to_keyring_path(keyring_root=keyring_root, paths=sources)
-
-    cert_paths: Set[Path] = get_cert_paths(sources)
-
-    for certificate in sorted(cert_paths):
-        print(f"Verify {certificate.name} owned by {certificate.parent.name}")
-
-        with NamedTemporaryFile(
-            dir=working_dir, prefix=f"{certificate.parent.name}-{certificate.name}", suffix=".asc"
-        ) as keyring:
-            keyring_path = Path(keyring.name)
-            export(
-                working_dir=working_dir,
-                keyring_root=keyring_root,
-                sources=[certificate],
-                output=keyring_path,
-            )
-
-            if lint_hokey:
-                keyring_fd = Popen(("sq", "dearmor", f"{str(keyring_path)}"), stdout=PIPE)
-                print(system(["hokey", "lint"], _stdin=keyring_fd.stdout), end="")
-            if lint_sq_keyring:
-                print(system(["sq-keyring-linter", f"{str(keyring_path)}"]), end="")
 
 
 def get_fingerprints_from_paths(sources: Iterable[Path]) -> Set[Fingerprint]:

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import List
 
 from .git import git_changed_files
-from .keyring import verify
 from .util import get_parent_cert_paths
+from .verify import verify
 
 
 def ci(working_dir: Path, keyring_root: Path, project_root: Path) -> None:

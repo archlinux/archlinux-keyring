@@ -11,6 +11,7 @@ from typing import List
 from typing import Optional
 
 from .types import Fingerprint
+from .types import PacketKind
 from .types import Uid
 from .types import Username
 from .util import cwd
@@ -206,6 +207,26 @@ def packet_signature_creation_time(packet: Path) -> datetime:
     The signature creation time as datetime
     """
     return datetime.strptime(packet_dump_field(packet, "Signature creation time"), "%Y-%m-%d %H:%M:%S %Z")
+
+
+def packet_kinds(packet: Path) -> List[PacketKind]:
+    """Retrieve the PGP packet types of a packet path
+
+    Parameters
+    ----------
+    packet: The path to the PGP packet to retrieve the kind of
+
+    Returns
+    -------
+    The kind of PGP packet
+    """
+
+    dump = packet_dump(packet)
+    lines = [line for line in dump.splitlines()]
+    lines = list(
+        filter(lambda line: not line.startswith(" ") and not line.startswith("WARNING") and line.strip(), lines)
+    )
+    return [PacketKind(line.split()[0]) for line in lines]
 
 
 def latest_certification(certifications: Iterable[Path]) -> Path:

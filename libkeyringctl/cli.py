@@ -15,9 +15,9 @@ from .keyring import convert
 from .keyring import export
 from .keyring import inspect_keyring
 from .keyring import list_keyring
-from .keyring import verify
 from .util import absolute_path
 from .util import cwd
+from .verify import verify
 
 parser = ArgumentParser()
 parser.add_argument(

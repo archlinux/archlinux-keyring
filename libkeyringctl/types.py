@@ -7,6 +7,7 @@ from typing import NewType
 Fingerprint = NewType("Fingerprint", str)
 Uid = NewType("Uid", str)
 Username = NewType("Username", str)
+PacketKind = NewType("PacketKind", str)
 
 
 class Trust(Enum):
