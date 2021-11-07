@@ -115,7 +115,7 @@ def system(
     try:
         return check_output(cmd, stderr=STDOUT, stdin=_stdin, env=env).decode()
     except CalledProcessError as e:
-        stderr.buffer.write(bytes(e.stdout, encoding="utf8"))
+        stderr.buffer.write(e.stdout)
         print_stack()
         if exit_on_error:
             exit(e.returncode)

@@ -50,7 +50,7 @@ def test_natural_sort_path(input_list: List[Path], output_list: List[Path]) -> N
 @patch("libkeyringctl.util.check_output")
 def test_system(check_output_mock: Mock, exit_mock: Mock, raise_on_cmd: bool, exit_on_error: bool) -> None:
     if raise_on_cmd:
-        check_output_mock.side_effect = util.CalledProcessError(returncode=1, cmd="foo", output="output")
+        check_output_mock.side_effect = util.CalledProcessError(returncode=1, cmd="foo", output=b"output")
 
         with raises(util.CalledProcessError):
             util.system(["foo"], exit_on_error=exit_on_error)
