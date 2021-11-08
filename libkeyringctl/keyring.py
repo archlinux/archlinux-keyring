@@ -222,7 +222,7 @@ def convert_certificate(  # noqa: ignore=C901
                 if signature_type == "SubkeyBinding":
                     subkey_bindings[current_packet_fingerprint].append(packet)
                 elif signature_type == "SubkeyRevocation":
-                    subkey_revocations[certificate_fingerprint].append(packet)
+                    subkey_revocations[current_packet_fingerprint].append(packet)
                 else:
                     raise Exception(f"unknown signature type: {signature_type}")
             else:
