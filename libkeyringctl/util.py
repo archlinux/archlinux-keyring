@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from collections.abc import Iterator
 from contextlib import contextmanager
 from os import chdir
+from os import environ
 from os import getcwd
 from pathlib import Path
 from re import split
@@ -110,7 +111,7 @@ def system(
     The output of cmd
     """
     if not env:
-        env = {}
+        env = {"HOME": environ["HOME"], "PATH": environ["PATH"], "LANG": "en_US.UTF-8"}
 
     try:
         return check_output(cmd, stderr=STDOUT, stdin=_stdin, env=env).decode()
