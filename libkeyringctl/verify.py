@@ -79,6 +79,13 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
     if not is_pgp_fingerprint(certificate.name):
         raise Exception(f"Unexpected certificate name for certificate {certificate.name}: {str(certificate)}")
 
+    pubkey = certificate / f"{certificate.name}.asc"
+    if not pubkey.is_file():
+        raise Exception(f"Missing certificate pubkey {certificate.name}: {str(pubkey)}")
+
+    if not list(certificate.glob("uid/*/*.asc")):
+        raise Exception(f"Missing at least one UID for {certificate.name}")
+
     # check packet files
     for path in certificate.iterdir():
         if path.is_file():
@@ -135,6 +142,15 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                 for uid in path.iterdir():
                     if not uid.is_dir():
                         raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(uid)}")
+                    uid_packet = uid / f"{uid.name}.asc"
+                    if not uid_packet.is_file():
+                        raise Exception(f"Missing uid packet for {certificate.name}: {str(uid_packet)}")
+
+                    uid_binding_sig = uid / "certification" / f"{certificate.name}.asc"
+                    uid_revocation_sig = uid / "revocation" / f"{certificate.name}.asc"
+                    if not uid_binding_sig.is_file() and not uid_revocation_sig:
+                        raise Exception(f"Missing uid binding/revocation sig for {certificate.name}: {str(uid)}")
+
                     for uid_path in uid.iterdir():
                         if uid_path.is_file():
                             if uid_path.name != f"{uid.name}.asc":
@@ -220,6 +236,15 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                         raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(subkey)}")
                     if not is_pgp_fingerprint(subkey.name):
                         raise Exception(f"Unexpected file name in certificate {certificate.name}: {str(subkey)}")
+                    subkey_packet = subkey / f"{subkey.name}.asc"
+                    if not subkey_packet.is_file():
+                        raise Exception(f"Missing subkey packet for {certificate.name}: {str(subkey_packet)}")
+
+                    subkey_binding_sig = subkey / "certification" / f"{certificate.name}.asc"
+                    subkey_revocation_sig = subkey / "revocation" / f"{certificate.name}.asc"
+                    if not subkey_binding_sig.is_file() and not subkey_revocation_sig:
+                        raise Exception(f"Missing subkey binding/revocation sig for {certificate.name}: {str(subkey)}")
+
                     for subkey_path in subkey.iterdir():
                         if subkey_path.is_file():
                             if subkey_path.name != f"{subkey.name}.asc":
