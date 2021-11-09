@@ -10,7 +10,6 @@ from typing import Set
 from libkeyringctl.keyring import export
 from libkeyringctl.keyring import get_fingerprints_from_paths
 from libkeyringctl.keyring import is_pgp_fingerprint
-from libkeyringctl.keyring import simplify_user_id
 from libkeyringctl.keyring import transform_fingerprint_to_keyring_path
 from libkeyringctl.keyring import transform_username_to_keyring_path
 from libkeyringctl.sequoia import packet_dump_field
@@ -20,6 +19,7 @@ from libkeyringctl.types import PacketKind
 from libkeyringctl.types import Uid
 from libkeyringctl.util import get_cert_paths
 from libkeyringctl.util import get_fingerprint_from_partial
+from libkeyringctl.util import simplify_ascii
 from libkeyringctl.util import system
 
 
@@ -161,7 +161,7 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                             kind = kinds[0]
                             if kind != "User":
                                 raise Exception(f"Unexpected packet in file {str(uid_path)}: {kind}")
-                            uid_value = simplify_user_id(Uid(packet_dump_field(packet=uid_path, field="Value")))
+                            uid_value = Uid(simplify_ascii(packet_dump_field(packet=uid_path, field="Value")))
                             if uid_value != uid.name:
                                 raise Exception(f"Unexpected uid in file {str(uid_path)}: {uid_value}")
                         elif not uid_path.is_dir():

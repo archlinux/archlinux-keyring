@@ -25,7 +25,6 @@ from pytest import fixture
 from libkeyringctl.keyring import convert_certificate
 from libkeyringctl.keyring import export
 from libkeyringctl.keyring import get_fingerprints_from_keyring_files
-from libkeyringctl.keyring import simplify_user_id
 from libkeyringctl.sequoia import certify
 from libkeyringctl.sequoia import key_extract_certificate
 from libkeyringctl.sequoia import key_generate
@@ -35,6 +34,7 @@ from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 from libkeyringctl.util import cwd
+from libkeyringctl.util import simplify_ascii
 from libkeyringctl.util import system
 
 test_keys: Dict[Username, List[Path]] = defaultdict(list)
@@ -133,7 +133,7 @@ def create_uid_certification(
             certificate: Path = test_certificates[certified][0]
             fingerprint: Fingerprint = Fingerprint(test_keyring_certificates[certified][0].name)
             issuer_fingerprint: Fingerprint = Fingerprint(test_keyring_certificates[issuer][0].name)
-            simplified_uid = simplify_user_id(uid)
+            simplified_uid = Uid(simplify_ascii(uid))
 
             output: Path = (
                 working_dir

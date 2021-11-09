@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-
 from collections.abc import Iterable
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -7,7 +6,11 @@ from os import chdir
 from os import environ
 from os import getcwd
 from pathlib import Path
+from re import escape
 from re import split
+from re import sub
+from string import ascii_letters
+from string import digits
 from subprocess import STDOUT
 from subprocess import CalledProcessError
 from subprocess import check_output
@@ -263,3 +266,51 @@ def filter_fingerprints_by_trust(trusts: Dict[Fingerprint, Trust], trust: Trust)
             filter(lambda item: trust == item[1], trusts.items()),
         )
     )
+
+
+simple_printable: str = ascii_letters + digits + "_-.+@"
+ascii_mapping: Dict[str, str] = {
+    "àáâãäæąăǎа": "a",
+    "ćçĉċč": "c",
+    "ďđ": "d",
+    "éèêëęēĕėěɇ": "e",
+    "ĝğġģ": "g",
+    "ĥħȟ": "h",
+    "ìíîïĩīĭįıĳ": "i",
+    "ĵɉ": "j",
+    "ķ": "k",
+    "ł": "l",
+    "ńņň": "n",
+    "òóôõöøŏőðȍǿ": "o",
+    "śș": "s",
+    "ß": "ss",
+    "ț": "t",
+    "úûüȗűȕù": "u",
+    "ýÿ": "y",
+    "źż": "z",
+}
+ascii_mapping_lookup: Dict[str, str] = {}
+for key, value in ascii_mapping.items():
+    for c in key:
+        if c in ascii_mapping_lookup:
+            raise Exception(f"duplicate ascii mapping: {c}")
+        ascii_mapping_lookup[c] = value
+        ascii_mapping_lookup[c.upper()] = value.upper()
+
+
+def simplify_ascii(_str: str) -> str:
+    """Simplify a string to contain more filesystem and printable friendly characters
+
+    Parameters
+    ----------
+    _str: A string to simplify (e.g. 'Foobar McFooface <foobar@foo.face>')
+
+    Returns
+    -------
+    The simplified representation of _str
+    """
+    _str = _str.strip("<")
+    _str = _str.strip(">")
+    _str = "".join([ascii_mapping_lookup.get(char) or char for char in _str])
+    _str = sub("[^" + escape(simple_printable) + "]", "_", _str)
+    return _str

@@ -5,9 +5,7 @@ from collections.abc import Iterable
 from itertools import chain
 from logging import debug
 from pathlib import Path
-from re import escape
 from re import match
-from re import sub
 from shutil import copytree
 from tempfile import NamedTemporaryFile
 from tempfile import mkdtemp
@@ -33,6 +31,7 @@ from .types import Username
 from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
 from .util import get_fingerprint_from_partial
+from .util import simplify_ascii
 from .util import transform_fd_to_tmpfile
 
 
@@ -161,7 +160,7 @@ def convert_certificate(  # noqa: ignore=C901
         elif packet.name.endswith("--UserID"):
             current_packet_mode = "uid"
             current_packet_fingerprint = None
-            current_packet_uid = simplify_user_id(Uid(packet_dump_field(packet, "Value")))
+            current_packet_uid = Uid(simplify_ascii(packet_dump_field(packet, "Value")))
 
             uids[current_packet_uid] = packet
         elif packet.name.endswith("--PublicSubkey"):
@@ -491,24 +490,6 @@ def persist_uid_revocations(
             output_file = revocation_dir / f"{issuer}.asc"
             debug(f"Writing file {output_file} from {revocation}")
             packet_join(packets=[revocation], output=output_file, force=True)
-
-
-def simplify_user_id(user_id: Uid) -> Uid:
-    """Simplify the User ID string to contain more filesystem friendly characters
-
-    Parameters
-    ----------
-    user_id: A User ID string (e.g. 'Foobar McFooface <foobar@foo.face>')
-
-    Returns
-    -------
-    The simplified representation of user_id
-    """
-
-    user_id_str: str = user_id.replace("@", "_at_")
-    user_id_str = sub("[<>]", "", user_id_str)
-    user_id_str = sub("[" + escape(r" !@#$%^&*()_-+=[]{}\|;:,.<>/?") + "]", "_", user_id_str)
-    return Uid(user_id_str)
 
 
 def derive_username_from_fingerprint(keyring_dir: Path, certificate_fingerprint: Fingerprint) -> Optional[Username]:
