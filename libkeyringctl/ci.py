@@ -24,11 +24,22 @@ def ci(working_dir: Path, keyring_root: Path, project_root: Path) -> None:
     """
 
     ci_merge_request_diff_base = environ.get("CI_MERGE_REQUEST_DIFF_BASE_SHA")
-    created, deleted, changed = git_changed_files(
-        git_path=project_root, base=f"{ci_merge_request_diff_base}", paths=[Path("keyring")]
+    created, deleted, modified = git_changed_files(
+        git_path=project_root, base=ci_merge_request_diff_base, paths=[Path("keyring")]
     )
 
-    added_certificates: List[Path] = list(get_parent_cert_paths(paths=created))
+    changed_certificates: List[Path] = list(get_parent_cert_paths(paths=created + deleted + modified))
 
+    verify(
+        working_dir=working_dir,
+        keyring_root=keyring_root,
+        sources=changed_certificates,
+        lint_hokey=False,
+        lint_sq_keyring=False,
+    )
+
+    added_certificates: List[Path] = [
+        path for path in changed_certificates if (path / f"{path.name}.asc").relative_to(project_root) in created
+    ]
     if added_certificates:
         verify(working_dir=working_dir, keyring_root=keyring_root, sources=added_certificates)

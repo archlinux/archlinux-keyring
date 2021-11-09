@@ -9,9 +9,9 @@ from .util import system
 
 
 def git_changed_files(
-    git_path: Optional[Path], base: Optional[str], paths: Optional[List[Path]] = None
+    git_path: Optional[Path] = None, base: Optional[str] = None, paths: Optional[List[Path]] = None
 ) -> Tuple[List[Path], List[Path], List[Path]]:
-    """Returns lists of created, deleted and changed files based on diff stats related to a base commit
+    """Returns lists of created, deleted and modified files based on diff stats related to a base commit
     and optional paths.
 
     Parameters
@@ -22,7 +22,7 @@ def git_changed_files(
 
     Returns
     -------
-    Lists of created, deleted and changed paths
+    Lists of created, deleted and modified paths
     """
     cmd = ["git"]
     if git_path:
@@ -38,7 +38,7 @@ def git_changed_files(
 
     created: List[Path] = []
     deleted: List[Path] = []
-    changed: List[Path] = []
+    modified: List[Path] = []
 
     for line in result.splitlines():
         line = line.strip()
@@ -48,8 +48,8 @@ def git_changed_files(
         if line.startswith("delete"):
             deleted.append(Path(line.split(maxsplit=3)[3]))
             continue
-        changed.append(Path(line.split(maxsplit=2)[2]))
+        modified.append(Path(line.split(maxsplit=2)[2]))
 
-    changed = [path for path in changed if path not in created and path not in deleted]
+    modified = [path for path in modified if path not in created and path not in deleted]
 
-    return created, deleted, changed
+    return created, deleted, modified
