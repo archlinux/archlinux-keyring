@@ -181,3 +181,18 @@ def test_filter_fingerprints_by_trust(
     trusts: Dict[Fingerprint, Trust], trust: Trust, result: List[Fingerprint]
 ) -> None:
     assert util.filter_fingerprints_by_trust(trusts=trusts, trust=trust) == result
+
+
+@mark.parametrize(
+    "_str, result",
+    [
+        ("foobar", "foobar"),
+        ("", ""),
+        ("bbàáâãğț aa", "bbaaaagt_aa"),
+        ("<>", ""),
+        ("!#$%^&*()_☃", "___________"),
+        ("_-.+@", "_-.+@"),
+    ],
+)
+def test_simplify_ascii(_str: str, result: str) -> None:
+    assert util.simplify_ascii(_str=_str) == result

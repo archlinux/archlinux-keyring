@@ -292,8 +292,6 @@ ascii_mapping: Dict[str, str] = {
 ascii_mapping_lookup: Dict[str, str] = {}
 for key, value in ascii_mapping.items():
     for c in key:
-        if c in ascii_mapping_lookup:
-            raise Exception(f"duplicate ascii mapping: {c}")
         ascii_mapping_lookup[c] = value
         ascii_mapping_lookup[c.upper()] = value.upper()
 
