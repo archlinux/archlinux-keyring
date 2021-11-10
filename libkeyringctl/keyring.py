@@ -4,6 +4,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from itertools import chain
 from logging import debug
+from logging import error
 from pathlib import Path
 from re import match
 from shutil import copytree
@@ -173,6 +174,14 @@ def convert_certificate(  # noqa: ignore=C901
             current_packet_uid = None
 
             subkeys[current_packet_fingerprint] = packet
+        elif packet.name.endswith("--SecretKey"):
+            error(
+                "\n###################################################################\n"
+                "Do not ever process your private key file!\n"
+                "Consider using a hardware token instead of local private key files!\n"
+                "###################################################################"
+            )
+            raise Exception("Secret key detected, aborting")
         elif packet.name.endswith("--Signature"):
             # ignore user attributes and related signatures
             if current_packet_mode == "uattr":
