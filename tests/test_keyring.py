@@ -8,6 +8,15 @@ from pytest import raises
 
 from libkeyringctl import keyring
 from libkeyringctl.types import Fingerprint
+from libkeyringctl.types import Uid
+from libkeyringctl.types import Username
+
+from .conftest import create_certificate
+from .conftest import create_key_revocation
+from .conftest import test_all_fingerprints
+from .conftest import test_certificates
+from .conftest import test_keys
+from .conftest import test_main_fingerprints
 
 
 def test_is_pgp_fingerprint(
@@ -102,6 +111,60 @@ def test_transform_fingerprint_to_keyring_path(
             assert path == modified_paths[index]
         if not create_paths and fingerprint_path and create_paths_in_keyring_dir:
             assert path == keyring_subdir / input_paths[index]
+
+
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+def test_convert(working_dir: Path, keyring_dir: Path) -> None:
+    keyring.convert(
+        working_dir=working_dir,
+        keyring_root=keyring_dir,
+        sources=test_certificates[Username("foobar")],
+        target_dir=keyring_dir,
+    )
+
+    with raises(Exception):
+        keyring.convert(
+            working_dir=working_dir,
+            keyring_root=keyring_dir,
+            sources=test_keys[Username("foobar")],
+            target_dir=keyring_dir,
+        )
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("other_main"), uids=[Uid("other main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+def test_export_ownertrust(working_dir: Path, keyring_dir: Path) -> None:
+    output = working_dir / "build"
+
+    keyring.export_ownertrust(
+        certs=[keyring_dir / "main"],
+        keyring_root=keyring_dir,
+        output=output,
+    )
+
+    with open(file=output, mode="r") as output_file:
+        for line in output_file.readlines():
+            assert line.split(":")[0] in test_main_fingerprints
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_key_revocation(username=Username("foobar"))
+def test_export_revoked(working_dir: Path, keyring_dir: Path) -> None:
+    output = working_dir / "build"
+
+    keyring.export_revoked(
+        certs=[keyring_dir / "packager"],
+        keyring_root=keyring_dir,
+        main_keys=test_main_fingerprints,
+        output=output,
+    )
+
+    revoked_fingerprints = test_all_fingerprints - test_main_fingerprints
+    with open(file=output, mode="r") as output_file:
+        for line in output_file.readlines():
+            assert line.strip() in revoked_fingerprints
 
 
 @mark.parametrize(
