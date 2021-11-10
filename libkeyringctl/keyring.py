@@ -163,6 +163,10 @@ def convert_certificate(  # noqa: ignore=C901
             current_packet_uid = Uid(simplify_ascii(packet_dump_field(packet, "Value")))
 
             uids[current_packet_uid] = packet
+        elif packet.name.endswith("UserAttribute"):
+            current_packet_mode = "uattr"
+            current_packet_fingerprint = None
+            current_packet_uid = None
         elif packet.name.endswith("--PublicSubkey"):
             current_packet_mode = "subkey"
             current_packet_fingerprint = Fingerprint(packet_dump_field(packet, "Fingerprint"))
@@ -170,6 +174,11 @@ def convert_certificate(  # noqa: ignore=C901
 
             subkeys[current_packet_fingerprint] = packet
         elif packet.name.endswith("--Signature"):
+            # ignore user attributes and related signatures
+            if current_packet_mode == "uattr":
+                debug("skipping user attribute signature packet")
+                continue
+
             if not certificate_fingerprint:
                 raise Exception('missing certificate fingerprint for "{packet.name}"')
 
