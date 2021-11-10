@@ -2,6 +2,8 @@ from contextlib import nullcontext as does_not_raise
 from copy import deepcopy
 from pathlib import Path
 from typing import ContextManager
+from unittest.mock import Mock
+from unittest.mock import patch
 
 from pytest import mark
 from pytest import raises
@@ -13,8 +15,10 @@ from libkeyringctl.types import Username
 
 from .conftest import create_certificate
 from .conftest import create_key_revocation
+from .conftest import create_uid_certification
 from .conftest import test_all_fingerprints
 from .conftest import test_certificates
+from .conftest import test_keyring_certificates
 from .conftest import test_keys
 from .conftest import test_main_fingerprints
 
@@ -165,6 +169,71 @@ def test_export_revoked(working_dir: Path, keyring_dir: Path) -> None:
     with open(file=output, mode="r") as output_file:
         for line in output_file.readlines():
             assert line.strip() in revoked_fingerprints
+
+
+@mark.parametrize("path_exists", [(True), (False)])
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_uid_certification(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_key_revocation(username=Username("foobar"))
+def test_get_packets_from_path(working_dir: Path, keyring_dir: Path, path_exists: bool) -> None:
+    if not path_exists:
+        assert keyring.get_packets_from_path(path=working_dir / "nope") == []
+    else:
+        for username, paths in test_keyring_certificates.items():
+            for path in paths:
+                keyring.get_packets_from_path(path=path)
+
+
+@mark.parametrize("path_exists", [(True), (False)])
+@patch("libkeyringctl.keyring.get_packets_from_path")
+def test_get_packets_from_listing(get_packets_from_path_mock: Mock, working_dir: Path, path_exists: bool) -> None:
+
+    path = working_dir / "path"
+    if not path_exists:
+        assert keyring.get_packets_from_listing(path=path) == []
+    else:
+        get_packets_from_path_mock.return_value = []
+        sub_path = path / "sub"
+        sub_path.mkdir(parents=True)
+        assert keyring.get_packets_from_listing(path=path) == []
+        get_packets_from_path_mock.assert_called_once_with(sub_path)
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_uid_certification(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_key_revocation(username=Username("foobar"))
+def test_export(working_dir: Path, keyring_dir: Path) -> None:
+    output_file = working_dir / "output"
+
+    empty_dir = working_dir / "empty"
+    empty_dir.mkdir()
+    assert not keyring.export(working_dir=working_dir, keyring_root=empty_dir, sources=None, output=output_file)
+    assert not output_file.exists()
+
+    keyring.export(working_dir=working_dir, keyring_root=keyring_dir, sources=None, output=output_file)
+    assert output_file.exists()
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_uid_certification(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_key_revocation(username=Username("foobar"))
+def test_build(working_dir: Path, keyring_dir: Path) -> None:
+    output_dir = working_dir / "output"
+
+    with raises(FileNotFoundError):
+        empty_dir = working_dir / "empty"
+        empty_dir.mkdir()
+        keyring.build(working_dir=working_dir, keyring_root=empty_dir, target_dir=output_dir)
+
+    keyring.build(working_dir=working_dir, keyring_root=keyring_dir, target_dir=output_dir)
+    assert (
+        (output_dir / "archlinux.gpg").exists()
+        and (output_dir / "archlinux-trusted").exists()
+        and (output_dir / "archlinux-revoked").exists()
+    )
 
 
 @mark.parametrize(

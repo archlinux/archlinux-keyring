@@ -754,17 +754,16 @@ def get_packets_from_path(path: Path) -> List[Path]:
     -------
     A list of packets ordered by root, certification, revocation
     """
+
     if not path.exists():
         return []
 
     packets: List[Path] = []
     packets += sorted(path.glob("*.asc"))
     certifications = path / "certification"
-    if certifications.exists():
-        packets += sorted(certifications.glob("*.asc"))
     revocations = path / "revocation"
-    if revocations.exists():
-        packets += sorted(revocations.glob("*.asc"))
+    packets += sorted(certifications.glob("*.asc")) if certifications.exists() else []
+    packets += sorted(revocations.glob("*.asc")) if revocations.exists() else []
     return packets
 
 
