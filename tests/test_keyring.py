@@ -274,6 +274,64 @@ def test_derive_username_from_fingerprint(
             assert returned_username is None
 
 
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+def test_list_keyring(working_dir: Path, keyring_dir: Path) -> None:
+    packager_fingerprints = test_all_fingerprints - test_main_fingerprints
+
+    with patch("builtins.print") as print_mock:
+        keyring.list_keyring(keyring_root=keyring_dir, sources=None, main_keys=False)
+        print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
+        for fingerprint in packager_fingerprints:
+            assert any([fingerprint in print_arg for print_arg in print_args])
+
+    with patch("builtins.print") as print_mock:
+        keyring.list_keyring(keyring_root=keyring_dir, sources=None, main_keys=True)
+        print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
+        for fingerprint in test_main_fingerprints:
+            assert any([fingerprint in print_arg for print_arg in print_args])
+
+    for name, paths in test_keyring_certificates.items():
+        if all(["main" in str(path) for path in paths]):
+            for path in paths:
+                with patch("builtins.print") as print_mock:
+                    keyring.list_keyring(keyring_root=keyring_dir, sources=[path], main_keys=True)
+                    print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
+                    assert name in print_args[0] and path.stem in print_args[0]
+        elif all(["packager" in str(path) for path in paths]):
+            for path in paths:
+                with patch("builtins.print") as print_mock:
+                    keyring.list_keyring(keyring_root=keyring_dir, sources=[path], main_keys=False)
+                    print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
+                    assert name in print_args[0] and path.stem in print_args[0]
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+def test_inspect_keyring(working_dir: Path, keyring_dir: Path) -> None:
+    inspect_string = keyring.inspect_keyring(working_dir=working_dir, keyring_root=keyring_dir, sources=None)
+    for fingerprint in test_all_fingerprints:
+        assert fingerprint in inspect_string
+
+    for name, paths in test_keyring_certificates.items():
+        if all(["main" in str(path) for path in paths]):
+            for path in paths:
+                inspect_string = keyring.inspect_keyring(
+                    working_dir=working_dir,
+                    keyring_root=keyring_dir,
+                    sources=[path],
+                )
+                assert path.stem in inspect_string
+        elif all(["packager" in str(path) for path in paths]):
+            for path in paths:
+                inspect_string = keyring.inspect_keyring(
+                    working_dir=working_dir,
+                    keyring_root=keyring_dir,
+                    sources=[path],
+                )
+                assert path.stem in inspect_string
+
+
 def test_get_fingerprints_from_paths(keyring_dir: Path, valid_fingerprint: str, valid_subkey_fingerprint: str) -> None:
 
     fingerprint_dir = keyring_dir / "type" / "username" / valid_fingerprint
