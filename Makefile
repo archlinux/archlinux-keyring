@@ -19,8 +19,8 @@ check:
 
 test:
 	coverage run
-	coverage report
 	coverage xml
+	coverage report --fail-under=100.0
 
 build:
 	./keyringctl -v build
