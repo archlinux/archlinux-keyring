@@ -1,7 +1,14 @@
+from collections import defaultdict
 from contextlib import nullcontext as does_not_raise
 from copy import deepcopy
 from pathlib import Path
+from random import choice
+from string import digits
 from typing import ContextManager
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Set
 from unittest.mock import Mock
 from unittest.mock import patch
 
@@ -115,6 +122,375 @@ def test_transform_fingerprint_to_keyring_path(
             assert path == modified_paths[index]
         if not create_paths and fingerprint_path and create_paths_in_keyring_dir:
             assert path == keyring_subdir / input_paths[index]
+
+
+@mark.parametrize(
+    "valid_current_packet_fingerprint, packet_type, issuer, expectation",
+    [
+        (True, "KeyRevocation", "self", does_not_raise()),
+        (True, "DirectKey", "self", does_not_raise()),
+        (True, "GenericCertification", "self", does_not_raise()),
+        (True, "KeyRevocation", None, does_not_raise()),
+        (True, "DirectKey", None, does_not_raise()),
+        (True, "GenericCertification", None, does_not_raise()),
+        (True, "KeyRevocation", "foo", raises(Exception)),
+        (True, "DirectKey", "foo", does_not_raise()),
+        (True, "GenericCertification", "foo", does_not_raise()),
+        (True, "foo", "foo", raises(Exception)),
+        (False, "KeyRevocation", True, raises(Exception)),
+        (False, "DirectKey", True, raises(Exception)),
+        (False, "GenericCertification", True, raises(Exception)),
+    ],
+)
+@patch("libkeyringctl.keyring.get_fingerprint_from_partial")
+@patch("libkeyringctl.keyring.packet_dump_field")
+def test_convert_pubkey_signature_packet(
+    packet_dump_field_mock: Mock,
+    get_fingerprint_from_partial_mock: Mock,
+    valid_current_packet_fingerprint: bool,
+    packet_type: str,
+    issuer: Optional[str],
+    expectation: ContextManager[str],
+    working_dir: Path,
+    valid_fingerprint: Fingerprint,
+) -> None:
+    packet = working_dir / "packet"
+    direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    current_packet_fingerprint = None
+
+    if valid_current_packet_fingerprint:
+        current_packet_fingerprint = valid_fingerprint
+
+    packet_dump_field_mock.return_value = packet_type
+    if issuer == "self":
+        get_fingerprint_from_partial_mock.return_value = valid_fingerprint
+    else:
+        get_fingerprint_from_partial_mock.return_value = None if issuer is None else Fingerprint(issuer)
+
+    with expectation:
+        keyring.convert_pubkey_signature_packet(
+            packet=packet,
+            certificate_fingerprint=valid_fingerprint,
+            fingerprint_filter=None,
+            current_packet_fingerprint=current_packet_fingerprint,
+            direct_revocations=direct_revocations,
+            direct_sigs=direct_sigs,
+        )
+
+        if issuer is None or current_packet_fingerprint is None:
+            assert not direct_revocations and not direct_sigs
+        else:
+            if packet_type == "KeyRevocation":
+                if issuer == "self":
+                    assert direct_revocations[valid_fingerprint] == [packet]
+                else:
+                    assert not direct_revocations
+            elif packet_type in ["DirectKey", "GenericCertification"]:
+                assert direct_sigs[valid_fingerprint if issuer == "self" else Fingerprint(issuer)] == [packet]
+
+
+@mark.parametrize(
+    "valid_current_packet_uid, packet_type, provide_issuer, issuer_in_filter, expectation",
+    [
+        (True, "CertificationRevocation", "self", True, does_not_raise()),
+        (True, "CertificationRevocation", "self", False, does_not_raise()),
+        (True, "SomeCertification", "self", True, does_not_raise()),
+        (True, "SomeCertification", "self", False, does_not_raise()),
+        (True, "CertificationRevocation", None, True, does_not_raise()),
+        (True, "CertificationRevocation", None, False, does_not_raise()),
+        (True, "SomeCertification", None, True, does_not_raise()),
+        (True, "SomeCertification", None, False, does_not_raise()),
+        (False, "CertificationRevocation", "self", True, raises(Exception)),
+        (False, "CertificationRevocation", "self", False, raises(Exception)),
+        (False, "SomeCertification", "self", True, raises(Exception)),
+        (False, "SomeCertification", "self", False, raises(Exception)),
+        (True, "foo", "self", True, raises(Exception)),
+        (True, "foo", "self", False, raises(Exception)),
+    ],
+)
+@patch("libkeyringctl.keyring.get_fingerprint_from_partial")
+@patch("libkeyringctl.keyring.packet_dump_field")
+def test_convert_uid_signature_packet(
+    packet_dump_field_mock: Mock,
+    get_fingerprint_from_partial_mock: Mock,
+    valid_current_packet_uid: bool,
+    packet_type: str,
+    provide_issuer: Optional[str],
+    issuer_in_filter: bool,
+    expectation: ContextManager[str],
+    working_dir: Path,
+    valid_fingerprint: Fingerprint,
+) -> None:
+    packet = working_dir / "packet"
+    certifications: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
+    revocations: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
+    current_packet_uid = None
+    issuer = None
+    fingerprint_filter: Set[Fingerprint] = set([Fingerprint("foo")])
+
+    if valid_current_packet_uid:
+        current_packet_uid = Uid("Foobar McFooface <foo@barmcfoofa.ce>")
+
+    packet_dump_field_mock.return_value = packet_type
+    if provide_issuer == "self":
+        issuer = valid_fingerprint
+    else:
+        if provide_issuer is not None:
+            issuer = Fingerprint(provide_issuer)
+
+    get_fingerprint_from_partial_mock.return_value = issuer
+
+    if issuer_in_filter and issuer is not None:
+        fingerprint_filter.add(issuer)
+
+    with expectation:
+        keyring.convert_uid_signature_packet(
+            packet=packet,
+            current_packet_uid=current_packet_uid,
+            fingerprint_filter=fingerprint_filter,
+            certifications=certifications,
+            revocations=revocations,
+        )
+
+        if not valid_current_packet_uid or issuer is None:
+            assert not certifications and not revocations
+        else:
+            if packet_type == "CertificationRevocation" and valid_current_packet_uid:
+                assert revocations[current_packet_uid][issuer] == [packet]  # type: ignore
+            elif packet_type.endswith("Certification") and issuer_in_filter:
+                assert certifications[current_packet_uid][issuer] == [packet]  # type: ignore
+            elif packet_type.endswith("Certification") and not issuer_in_filter:
+                assert not certifications
+
+
+@mark.parametrize(
+    "valid_current_packet_fingerprint, packet_type, issuer, expectation",
+    [
+        (True, "SubkeyBinding", "self", does_not_raise()),
+        (True, "SubkeyRevocation", "self", does_not_raise()),
+        (True, "SubkeyBinding", None, does_not_raise()),
+        (True, "SubkeyRevocation", None, does_not_raise()),
+        (True, "SubkeyBinding", "foo", raises(Exception)),
+        (True, "SubkeyRevocation", "foo", raises(Exception)),
+        (False, "SubkeyBinding", "self", raises(Exception)),
+        (False, "SubkeyRevocation", "self", raises(Exception)),
+        (True, "foo", "self", raises(Exception)),
+    ],
+)
+@patch("libkeyringctl.keyring.get_fingerprint_from_partial")
+@patch("libkeyringctl.keyring.packet_dump_field")
+def test_convert_subkey_signature_packet(
+    packet_dump_field_mock: Mock,
+    get_fingerprint_from_partial_mock: Mock,
+    valid_current_packet_fingerprint: bool,
+    packet_type: str,
+    issuer: Optional[str],
+    expectation: ContextManager[str],
+    working_dir: Path,
+    valid_fingerprint: Fingerprint,
+) -> None:
+    packet = working_dir / "packet"
+    subkey_bindings: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    subkey_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    current_packet_fingerprint = None
+
+    if valid_current_packet_fingerprint:
+        current_packet_fingerprint = valid_fingerprint
+
+    packet_dump_field_mock.return_value = packet_type
+    if issuer == "self":
+        get_fingerprint_from_partial_mock.return_value = valid_fingerprint
+    else:
+        get_fingerprint_from_partial_mock.return_value = None if issuer is None else Fingerprint(issuer)
+
+    with expectation:
+        keyring.convert_subkey_signature_packet(
+            packet=packet,
+            certificate_fingerprint=valid_fingerprint,
+            current_packet_fingerprint=current_packet_fingerprint,
+            fingerprint_filter=None,
+            subkey_bindings=subkey_bindings,
+            subkey_revocations=subkey_revocations,
+        )
+
+        if issuer is None or not valid_current_packet_fingerprint:
+            assert not subkey_bindings and not subkey_revocations
+        else:
+            if packet_type == "SubkeyBinding" and issuer == "self":
+                assert subkey_bindings[valid_fingerprint] == [packet]
+            elif packet_type == "SubkeyRevocation" and issuer == "self":
+                assert subkey_revocations[valid_fingerprint] == [packet]
+
+
+@mark.parametrize(
+    "valid_certificate_fingerprint, current_packet_mode, expectation",
+    [
+        (True, "pubkey", does_not_raise()),
+        (True, "uid", does_not_raise()),
+        (True, "subkey", does_not_raise()),
+        (True, "uattr", does_not_raise()),
+        (False, "pubkey", raises(Exception)),
+        (False, "uid", raises(Exception)),
+        (False, "subkey", raises(Exception)),
+        (False, "uattr", raises(Exception)),
+        (True, "foo", raises(Exception)),
+    ],
+)
+@patch("libkeyringctl.keyring.convert_pubkey_signature_packet")
+@patch("libkeyringctl.keyring.convert_uid_signature_packet")
+@patch("libkeyringctl.keyring.convert_subkey_signature_packet")
+def test_convert_signature_packet(
+    convert_subkey_signature_packet_mock: Mock,
+    convert_uid_signature_packet_mock: Mock,
+    convert_pubkey_signature_packet_mock: Mock,
+    valid_certificate_fingerprint: bool,
+    current_packet_mode: str,
+    expectation: ContextManager[str],
+    valid_fingerprint: Fingerprint,
+) -> None:
+    certificate_fingerprint = None
+    direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    certifications: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
+    revocations: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
+    subkey_bindings: Dict[Fingerprint, List[Path]] = defaultdict(list)
+    subkey_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
+
+    if valid_certificate_fingerprint:
+        certificate_fingerprint = valid_fingerprint
+
+    with expectation:
+        keyring.convert_signature_packet(
+            packet=Path("foo"),
+            current_packet_mode=current_packet_mode,
+            certificate_fingerprint=certificate_fingerprint,
+            fingerprint_filter=None,
+            current_packet_fingerprint=None,
+            current_packet_uid=None,
+            direct_revocations=direct_revocations,
+            direct_sigs=direct_sigs,
+            certifications=certifications,
+            revocations=revocations,
+            subkey_bindings=subkey_bindings,
+            subkey_revocations=subkey_revocations,
+        )
+
+        if current_packet_mode == "pubkey":
+            convert_pubkey_signature_packet_mock.assert_called_once()
+        elif current_packet_mode == "uid":
+            convert_uid_signature_packet_mock.assert_called_once()
+        elif current_packet_mode == "subkey":
+            convert_subkey_signature_packet_mock.assert_called_once()
+
+
+@mark.parametrize(
+    "packet, packet_split, packet_dump_field, name_override, expectation",
+    [
+        (
+            Path("foo.asc"),
+            [
+                Path("--PublicKey"),
+                Path("--UserID"),
+                Path("--UserAttribute"),
+                Path("--PublicSubkey"),
+                Path("--Signature"),
+            ],
+            [
+                "".join(choice("ABCDEF" + digits) for x in range(40)),
+                "foo <foo@bar.com>",
+                "".join(choice("ABCDEF" + digits) for x in range(40)),
+            ],
+            "bar",
+            does_not_raise(),
+        ),
+        (
+            Path("foo.asc"),
+            [
+                Path("--SecretKey"),
+            ],
+            [],
+            None,
+            raises(Exception),
+        ),
+        (
+            Path("foo.asc"),
+            [
+                Path("foo"),
+            ],
+            [],
+            None,
+            raises(Exception),
+        ),
+        (
+            Path("foo.asc"),
+            [
+                Path("--PublicKey"),
+            ],
+            [
+                None,
+            ],
+            "bar",
+            raises(Exception),
+        ),
+    ],
+)
+@patch("libkeyringctl.keyring.persist_key_material")
+@patch("libkeyringctl.keyring.packet_split")
+@patch("libkeyringctl.keyring.convert_signature_packet")
+@patch("libkeyringctl.keyring.packet_dump_field")
+@patch("libkeyringctl.keyring.derive_username_from_fingerprint")
+def test_convert_certificate(
+    derive_username_from_fingerprint_mock: Mock,
+    packet_dump_field_mock: Mock,
+    convert_signature_packet_mock: Mock,
+    packet_split_mock: Mock,
+    persist_key_material_mock: Mock,
+    packet: Path,
+    packet_split: List[Path],
+    packet_dump_field: List[str],
+    name_override: Optional[Username],
+    expectation: ContextManager[str],
+    working_dir: Path,
+    keyring_dir: Path,
+) -> None:
+    packet_split_mock.return_value = packet_split
+    packet_dump_field_mock.side_effect = packet_dump_field
+
+    with expectation:
+        keyring.convert_certificate(
+            working_dir=working_dir,
+            certificate=packet,
+            keyring_dir=keyring_dir,
+            name_override=name_override,
+            fingerprint_filter=None,
+        )
+
+
+@patch("libkeyringctl.keyring.latest_certification")
+@patch("libkeyringctl.keyring.packet_join")
+def test_persist_subkey_revocations(
+    packet_join_mock: Mock,
+    latest_certification_mock: Mock,
+    working_dir: Path,
+    keyring_dir: Path,
+    valid_fingerprint: Fingerprint,
+) -> None:
+    revocation_packet = working_dir / "latest_revocation.asc"
+    latest_certification_mock.return_value = revocation_packet
+    subkey_revocations: Dict[Fingerprint, List[Path]] = {
+        valid_fingerprint: [revocation_packet, working_dir / "earlier_revocation.asc"]
+    }
+    keyring.persist_subkey_revocations(
+        key_dir=keyring_dir,
+        subkey_revocations=subkey_revocations,
+        issuer=valid_fingerprint,
+    )
+    packet_join_mock.assert_called_once_with(
+        packets=[revocation_packet],
+        output=keyring_dir / "subkey" / valid_fingerprint / "revocation" / f"{valid_fingerprint}.asc",
+        force=True,
+    )
 
 
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
