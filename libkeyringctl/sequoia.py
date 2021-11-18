@@ -206,7 +206,9 @@ def packet_signature_creation_time(packet: Path) -> datetime:
     -------
     The signature creation time as datetime
     """
-    return datetime.strptime(packet_dump_field(packet, "Signature creation time"), "%Y-%m-%d %H:%M:%S %Z")
+    field = packet_dump_field(packet, "Signature creation time")
+    field = " ".join(field.split(" ", 3)[0:3])
+    return datetime.strptime(field, "%Y-%m-%d %H:%M:%S %Z")
 
 
 def packet_kinds(packet: Path) -> List[PacketKind]:

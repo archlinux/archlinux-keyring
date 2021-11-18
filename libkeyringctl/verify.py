@@ -15,7 +15,6 @@ from libkeyringctl.keyring import transform_username_to_keyring_path
 from libkeyringctl.sequoia import packet_dump_field
 from libkeyringctl.sequoia import packet_kinds
 from libkeyringctl.types import Fingerprint
-from libkeyringctl.types import PacketKind
 from libkeyringctl.types import Uid
 from libkeyringctl.util import get_cert_paths
 from libkeyringctl.util import get_fingerprint_from_partial
@@ -91,60 +90,26 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
         if path.is_file():
             if path.name != f"{certificate.name}.asc":
                 raise Exception(f"Unexpected file in certificate {certificate.name}: {str(path)}")
-            kinds: List[PacketKind] = packet_kinds(packet=path)
-            if not kinds or len(kinds) > 1:
-                raise Exception(f"Unexpected amount of packets in file {str(path)}: {kinds}")
-            kind = kinds[0]
-            if kind != "Public-Key":
-                raise Exception(f"Unexpected packet in file {str(path)}: {kind}")
-            fingerprint = packet_dump_field(packet=path, field="Fingerprint")
-            if fingerprint != certificate.name:
-                raise Exception(f"Unexpected packet fingerprint in file {str(path)}: {fingerprint}")
+            assert_packet_kind(path=path, expected="Public-Key")
+            assert_filename_matches_packet_fingerprint(path=path, check=certificate.name)
             debug(f"OK: {path}")
         elif path.is_dir():
-            # TODO: check direct key types, multiple
-            if "certification" == path.name:
-                for sig in path.iterdir():
-                    if not sig.is_file():
-                        raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(sig)}")
-                    if not is_pgp_fingerprint(sig.stem):
-                        raise Exception(f"Unexpected file name in certificate {certificate.name}: {str(sig)}")
-                    if sig.suffix != ".asc":
-                        raise Exception(f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}")
-                    kinds = packet_kinds(packet=sig)
-                    if not kinds:
-                        raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                    if any(filter(lambda kind: not kind == "Signature", kinds)):
-                        raise Exception(f"Unexpected packet in file {str(sig)}: {kinds}")
-                    debug(f"OK: {path}")
-            elif "revocation" == path.name:
-                for sig in path.iterdir():
-                    if not sig.is_file():
-                        raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(sig)}")
-                    if not is_pgp_fingerprint(sig.stem):
-                        raise Exception(f"Unexpected file name in certificate {certificate.name}: {str(sig)}")
-                    if sig.suffix != ".asc":
-                        raise Exception(f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}")
-                    kinds = packet_kinds(packet=sig)
-                    if not kinds or len(kinds) > 1:
-                        raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                    kind = kinds[0]
-                    if kind != "Signature":
-                        raise Exception(f"Unexpected packet in file {str(sig)}: {kind}")
-                    fingerprint = packet_dump_field(packet=sig, field="Issuer Fingerprint")
-                    if not fingerprint == sig.stem:
-                        raise Exception(f"Unexpected packet fingerprint in file {str(sig)}: {fingerprint}")
-                    sig_type = packet_dump_field(packet=sig, field="Type")
-                    if "KeyRevocation" != sig_type:
-                        raise Exception(f"Unexpected packet type in file {str(sig)}: {sig_type}")
-                    debug(f"OK: {sig}")
+            if "revocation" == path.name:
+                verify_integrity_key_revocations(path=path)
+            elif "directkey" == path.name:
+                for directkey in path.iterdir():
+                    assert_is_dir(path=directkey)
+                    if "certification" == directkey.name:
+                        verify_integrity_direct_key_certifications(path=directkey)
+                    elif "revocation" == directkey.name:
+                        verify_integrity_direct_key_revocations(path=directkey)
+                    else:
+                        raise_unexpected_file(path=directkey)
             elif "uid" == path.name:
                 for uid in path.iterdir():
-                    if not uid.is_dir():
-                        raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(uid)}")
+                    assert_is_dir(path=uid)
                     uid_packet = uid / f"{uid.name}.asc"
-                    if not uid_packet.is_file():
-                        raise Exception(f"Missing uid packet for {certificate.name}: {str(uid_packet)}")
+                    assert_is_file(path=uid_packet)
 
                     uid_binding_sig = uid / "certification" / f"{certificate.name}.asc"
                     uid_revocation_sig = uid / "revocation" / f"{certificate.name}.asc"
@@ -155,12 +120,9 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                         if uid_path.is_file():
                             if uid_path.name != f"{uid.name}.asc":
                                 raise Exception(f"Unexpected file in certificate {certificate.name}: {str(uid_path)}")
-                            kinds = packet_kinds(packet=uid_path)
-                            if not kinds or len(kinds) > 1:
-                                raise Exception(f"Unexpected amount of packets in file {str(uid_path)}: {kinds}")
-                            kind = kinds[0]
-                            if kind != "User":
-                                raise Exception(f"Unexpected packet in file {str(uid_path)}: {kind}")
+
+                            assert_packet_kind(path=uid_path, expected="User")
+
                             uid_value = Uid(simplify_ascii(packet_dump_field(packet=uid_path, field="Value")))
                             if uid_value != uid.name:
                                 raise Exception(f"Unexpected uid in file {str(uid_path)}: {uid_value}")
@@ -168,63 +130,35 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                             raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(uid_path)}")
                         elif "certification" == uid_path.name:
                             for sig in uid_path.iterdir():
-                                if not sig.is_file():
-                                    raise Exception(
-                                        f"Unexpected file type in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if not is_pgp_fingerprint(sig.stem):
-                                    raise Exception(
-                                        f"Unexpected file name in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if sig.suffix != ".asc":
-                                    raise Exception(
-                                        f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                kinds = packet_kinds(packet=sig)
-                                if not kinds or len(kinds) > 1:
-                                    raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                                kind = kinds[0]
-                                if kind != "Signature":
-                                    raise Exception(f"Unexpected packet in file {str(sig)}: {kind}")
+                                assert_is_file(path=sig)
+                                assert_is_pgp_fingerprint(path=sig, _str=sig.stem)
+                                assert_has_suffix(path=sig, suffix=".asc")
+
+                                assert_packet_kind(path=sig, expected="Signature")
+                                assert_signature_type_certification(path=sig)
+
                                 issuer = get_fingerprint_from_partial(
                                     fingerprints=all_fingerprints,
                                     fingerprint=Fingerprint(packet_dump_field(packet=sig, field="Issuer")),
                                 )
                                 if issuer != sig.stem:
                                     raise Exception(f"Unexpected issuer in file {str(sig)}: {issuer}")
-                                sig_type = packet_dump_field(packet=sig, field="Type")
-                                if not sig_type.endswith("Certification"):
-                                    raise Exception(f"Unexpected packet type in file {str(sig)}: {sig_type}")
                                 debug(f"OK: {sig}")
                         elif "revocation" == uid_path.name:
                             for sig in uid_path.iterdir():
-                                if not sig.is_file():
-                                    raise Exception(
-                                        f"Unexpected file type in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if not is_pgp_fingerprint(sig.stem):
-                                    raise Exception(
-                                        f"Unexpected file name in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if sig.suffix != ".asc":
-                                    raise Exception(
-                                        f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                kinds = packet_kinds(packet=sig)
-                                if not kinds or len(kinds) > 1:
-                                    raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                                kind = kinds[0]
-                                if kind != "Signature":
-                                    raise Exception(f"Unexpected packet in file {str(sig)}: {kind}")
+                                assert_is_file(path=sig)
+                                assert_is_pgp_fingerprint(path=sig, _str=sig.stem)
+                                assert_has_suffix(path=sig, suffix=".asc")
+
+                                assert_packet_kind(path=sig, expected="Signature")
+                                assert_signature_type(path=sig, expected="CertificationRevocation")
+
                                 issuer = get_fingerprint_from_partial(
                                     fingerprints=all_fingerprints,
                                     fingerprint=Fingerprint(packet_dump_field(packet=sig, field="Issuer")),
                                 )
                                 if issuer != sig.stem:
                                     raise Exception(f"Unexpected issuer in file {str(sig)}: {issuer}")
-                                sig_type = packet_dump_field(packet=sig, field="Type")
-                                if sig_type != "CertificationRevocation":
-                                    raise Exception(f"Unexpected packet type in file {str(sig)}: {sig_type}")
                                 debug(f"OK: {sig}")
                         else:
                             raise Exception(f"Unexpected directory in certificate {certificate.name}: {str(uid_path)}")
@@ -232,13 +166,11 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                     debug(f"OK: {uid}")
             elif "subkey" == path.name:
                 for subkey in path.iterdir():
-                    if not subkey.is_dir():
-                        raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(subkey)}")
-                    if not is_pgp_fingerprint(subkey.name):
-                        raise Exception(f"Unexpected file name in certificate {certificate.name}: {str(subkey)}")
+                    assert_is_dir(path=subkey)
+                    assert_is_pgp_fingerprint(path=subkey, _str=subkey.name)
+
                     subkey_packet = subkey / f"{subkey.name}.asc"
-                    if not subkey_packet.is_file():
-                        raise Exception(f"Missing subkey packet for {certificate.name}: {str(subkey_packet)}")
+                    assert_is_file(path=subkey_packet)
 
                     subkey_binding_sig = subkey / "certification" / f"{certificate.name}.asc"
                     subkey_revocation_sig = subkey / "revocation" / f"{certificate.name}.asc"
@@ -251,73 +183,33 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                                 raise Exception(
                                     f"Unexpected file in certificate {certificate.name}: {str(subkey_path)}"
                                 )
-                            kinds = packet_kinds(packet=subkey_path)
-                            if not kinds or len(kinds) > 1:
-                                raise Exception(f"Unexpected amount of packets in file {str(subkey_path)}: {kinds}")
-                            kind = kinds[0]
-                            if kind != "Public-Subkey":
-                                raise Exception(f"Unexpected packet in file {str(subkey_path)}: {kind}")
-                            fingerprint = packet_dump_field(packet=subkey_path, field="Fingerprint")
-                            if fingerprint != subkey_path.stem:
-                                raise Exception(
-                                    f"Unexpected packet fingerprint in file {str(subkey_path)}: {fingerprint}"
-                                )
+
+                            assert_packet_kind(path=subkey_path, expected="Public-Subkey")
+                            assert_filename_matches_packet_fingerprint(path=subkey_path, check=subkey_path.stem)
                         elif not subkey_path.is_dir():
                             raise Exception(
                                 f"Unexpected file type in certificate {certificate.name}: {str(subkey_path)}"
                             )
                         elif "certification" == subkey_path.name:
                             for sig in subkey_path.iterdir():
-                                if not sig.is_file():
-                                    raise Exception(
-                                        f"Unexpected file type in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if not is_pgp_fingerprint(sig.stem):
-                                    raise Exception(
-                                        f"Unexpected file name in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if sig.suffix != ".asc":
-                                    raise Exception(
-                                        f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                kinds = packet_kinds(packet=sig)
-                                if not kinds or len(kinds) > 1:
-                                    raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                                kind = kinds[0]
-                                if kind != "Signature":
-                                    raise Exception(f"Unexpected packet in file {str(sig)}: {kind}")
-                                fingerprint = packet_dump_field(packet=sig, field="Issuer Fingerprint")
-                                if fingerprint != certificate.name:
-                                    raise Exception(f"Unexpected packet fingerprint in file {str(sig)}: {fingerprint}")
-                                sig_type = packet_dump_field(packet=sig, field="Type")
-                                if sig_type != "SubkeyBinding":
-                                    raise Exception(f"Unexpected packet type in file {str(sig)}: {sig_type}")
+                                assert_is_file(path=sig)
+                                assert_is_pgp_fingerprint(path=sig, _str=sig.stem)
+                                assert_has_suffix(path=sig, suffix=".asc")
+
+                                assert_packet_kind(path=sig, expected="Signature")
+                                assert_signature_type(path=sig, expected="SubkeyBinding")
+
+                                assert_filename_matches_packet_issuer_fingerprint(path=sig, check=certificate.name)
                         elif "revocation" == subkey_path.name:
                             for sig in subkey_path.iterdir():
-                                if not sig.is_file():
-                                    raise Exception(
-                                        f"Unexpected file type in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if not is_pgp_fingerprint(sig.stem):
-                                    raise Exception(
-                                        f"Unexpected file name in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                if sig.suffix != ".asc":
-                                    raise Exception(
-                                        f"Unexpected file suffix in certificate {certificate.name}: {str(sig)}"
-                                    )
-                                kinds = packet_kinds(packet=sig)
-                                if not kinds or len(kinds) > 1:
-                                    raise Exception(f"Unexpected amount of packets in file {str(sig)}: {kinds}")
-                                kind = kinds[0]
-                                if kind != "Signature":
-                                    raise Exception(f"Unexpected packet in file {str(sig)}: {kind}")
-                                fingerprint = packet_dump_field(packet=sig, field="Issuer Fingerprint")
-                                if fingerprint != certificate.name:
-                                    raise Exception(f"Unexpected packet fingerprint in file {str(sig)}: {fingerprint}")
-                                sig_type = packet_dump_field(packet=sig, field="Type")
-                                if sig_type != "SubkeyRevocation":
-                                    raise Exception(f"Unexpected packet type in file {str(sig)}: {sig_type}")
+                                assert_is_file(path=sig)
+                                assert_is_pgp_fingerprint(path=sig, _str=sig.stem)
+                                assert_has_suffix(path=sig, suffix=".asc")
+
+                                assert_packet_kind(path=sig, expected="Signature")
+                                assert_signature_type(path=sig, expected="SubkeyRevocation")
+
+                                assert_filename_matches_packet_issuer_fingerprint(path=sig, check=certificate.name)
                         else:
                             raise Exception(
                                 f"Unexpected directory in certificate {certificate.name}: {str(subkey_path)}"
@@ -327,3 +219,115 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                 raise Exception(f"Unexpected directory in certificate {certificate.name}: {str(path)}")
         else:
             raise Exception(f"Unexpected file type in certificate {certificate.name}: {str(path)}")
+
+
+def assert_packet_kind(path: Path, expected: str) -> None:
+    kinds = packet_kinds(packet=path)
+    if not kinds or len(kinds) != 1:
+        raise Exception(f"Unexpected amount of packets in file {str(path)}: {kinds}")
+    kind = kinds[0]
+    if kind != expected:
+        raise Exception(f"Unexpected packet in file {str(path)} kind: {kind} expected: {expected}")
+
+
+def assert_signature_type(path: Path, expected: str) -> None:
+    sig_type = packet_dump_field(packet=path, field="Type")
+    if sig_type != expected:
+        raise Exception(f"Unexpected packet type in file {str(path)} type: {sig_type} expected: {expected}")
+
+
+def assert_signature_type_certification(path: Path) -> None:
+    sig_type = packet_dump_field(packet=path, field="Type")
+    if sig_type not in ["GenericCertification", "PersonaCertification", "CasualCertification", "PositiveCertification"]:
+        raise Exception(f"Unexpected packet certification type in file {str(path)} type: {sig_type}")
+
+
+def assert_is_pgp_fingerprint(path: Path, _str: str) -> None:
+    if not is_pgp_fingerprint(_str):
+        raise Exception(f"Unexpected file name, not a pgp fingerprint: {str(path)}")
+
+
+def assert_filename_matches_packet_issuer_fingerprint(path: Path, check: str) -> None:
+    fingerprint = packet_dump_field(packet=path, field="Issuer Fingerprint")
+    if not fingerprint == check:
+        raise Exception(f"Unexpected packet fingerprint in file {str(path)}: {fingerprint}")
+
+
+def assert_filename_matches_packet_fingerprint(path: Path, check: str) -> None:
+    fingerprint = packet_dump_field(packet=path, field="Fingerprint")
+    if not fingerprint == check:
+        raise Exception(f"Unexpected packet fingerprint in file {str(path)}: {fingerprint}")
+
+
+def assert_has_suffix(path: Path, suffix: str) -> None:
+    if path.suffix != suffix:
+        raise Exception(f"Unexpected file suffix in {str(path)} expected: {suffix}")
+
+
+def assert_is_file(path: Path) -> None:
+    if not path.is_file():
+        raise Exception(f"Unexpected type, should be file: {str(path)}")
+
+
+def assert_is_dir(path: Path) -> None:
+    if not path.is_dir():
+        raise Exception(f"Unexpected type, should be directory: {str(path)}")
+
+
+def raise_unexpected_file(path: Path) -> None:
+    raise Exception(f"Unexpected file in directory: {str(path)}")
+
+
+def verify_integrity_key_revocations(path: Path) -> None:
+    assert_is_dir(path=path)
+    for sig in path.iterdir():
+        assert_is_file(path=sig)
+        assert_is_pgp_fingerprint(path=sig, _str=sig.stem)
+        assert_has_suffix(path=sig, suffix=".asc")
+
+        assert_packet_kind(path=sig, expected="Signature")
+        assert_signature_type(path=sig, expected="KeyRevocation")
+
+        assert_filename_matches_packet_issuer_fingerprint(path=sig, check=sig.stem)
+
+        debug(f"OK: {sig}")
+
+
+def verify_integrity_direct_key_certifications(path: Path) -> None:
+    for issuer_dir in path.iterdir():
+        assert_is_dir(path=issuer_dir)
+        assert_is_pgp_fingerprint(path=issuer_dir, _str=issuer_dir.name)
+        for certification in issuer_dir.iterdir():
+            verify_integrity_direct_key_certification(path=certification)
+
+
+def verify_integrity_direct_key_revocations(path: Path) -> None:
+    for issuer_dir in path.iterdir():
+        assert_is_dir(path=issuer_dir)
+        assert_is_pgp_fingerprint(path=issuer_dir, _str=issuer_dir.name)
+        for certification in issuer_dir.iterdir():
+            verify_integrity_direct_key_revocation(path=certification)
+
+
+def verify_integrity_direct_key_certification(path: Path) -> None:
+    assert_is_file(path=path)
+    assert_has_suffix(path=path, suffix=".asc")
+
+    assert_packet_kind(path=path, expected="Signature")
+    assert_signature_type(path=path, expected="DirectKey")
+
+    assert_filename_matches_packet_issuer_fingerprint(path=path, check=path.parent.name)
+
+    debug(f"OK: {path}")
+
+
+def verify_integrity_direct_key_revocation(path: Path) -> None:
+    assert_is_file(path=path)
+    assert_has_suffix(path=path, suffix=".asc")
+
+    assert_packet_kind(path=path, expected="Signature")
+    assert_signature_type(path=path, expected="CertificationRevocation")
+
+    assert_filename_matches_packet_issuer_fingerprint(path=path, check=path.parent.name)
+
+    debug(f"OK: {path}")

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from contextlib import nullcontext as does_not_raise
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from random import choice
 from string import digits
@@ -16,7 +17,9 @@ from pytest import mark
 from pytest import raises
 
 from libkeyringctl import keyring
+from libkeyringctl.keyring import PACKET_FILENAME_DATETIME_FORMAT
 from libkeyringctl.types import Fingerprint
+from libkeyringctl.types import TrustFilter
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 
@@ -131,15 +134,19 @@ def test_transform_fingerprint_to_keyring_path(
         (True, "DirectKey", "self", does_not_raise()),
         (True, "GenericCertification", "self", does_not_raise()),
         (True, "KeyRevocation", None, does_not_raise()),
+        (True, "CertificationRevocation", None, does_not_raise()),
+        (True, "CertificationRevocation", "self", does_not_raise()),
         (True, "DirectKey", None, does_not_raise()),
         (True, "GenericCertification", None, does_not_raise()),
         (True, "KeyRevocation", "foo", raises(Exception)),
         (True, "DirectKey", "foo", does_not_raise()),
         (True, "GenericCertification", "foo", does_not_raise()),
-        (True, "foo", "foo", raises(Exception)),
+        (True, "foo", "foo", does_not_raise()),
+        (True, "foo", "self", raises(Exception)),
         (False, "KeyRevocation", True, raises(Exception)),
         (False, "DirectKey", True, raises(Exception)),
         (False, "GenericCertification", True, raises(Exception)),
+        (False, "CertificationRevocation", True, raises(Exception)),
     ],
 )
 @patch("libkeyringctl.keyring.get_fingerprint_from_partial")
@@ -155,6 +162,7 @@ def test_convert_pubkey_signature_packet(
     valid_fingerprint: Fingerprint,
 ) -> None:
     packet = working_dir / "packet"
+    key_revocations: Dict[Fingerprint, Path] = {}
     direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
     direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
     current_packet_fingerprint = None
@@ -174,20 +182,28 @@ def test_convert_pubkey_signature_packet(
             certificate_fingerprint=valid_fingerprint,
             fingerprint_filter=None,
             current_packet_fingerprint=current_packet_fingerprint,
+            key_revocations=key_revocations,
             direct_revocations=direct_revocations,
             direct_sigs=direct_sigs,
         )
 
         if issuer is None or current_packet_fingerprint is None:
-            assert not direct_revocations and not direct_sigs
+            assert not direct_revocations and not direct_sigs and not key_revocations
         else:
             if packet_type == "KeyRevocation":
-                if issuer == "self":
-                    assert direct_revocations[valid_fingerprint] == [packet]
-                else:
+                assert key_revocations[valid_fingerprint] == packet
+            elif packet_type in ["CertificationRevocation"]:
+                if issuer != "self":
                     assert not direct_revocations
+                else:
+                    assert direct_revocations[valid_fingerprint if issuer == "self" else Fingerprint(issuer)] == [
+                        packet
+                    ]
             elif packet_type in ["DirectKey", "GenericCertification"]:
-                assert direct_sigs[valid_fingerprint if issuer == "self" else Fingerprint(issuer)] == [packet]
+                if issuer != "self":
+                    assert not direct_sigs
+                else:
+                    assert direct_sigs[valid_fingerprint if issuer == "self" else Fingerprint(issuer)] == [packet]
 
 
 @mark.parametrize(
@@ -227,7 +243,7 @@ def test_convert_uid_signature_packet(
     revocations: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
     current_packet_uid = None
     issuer = None
-    fingerprint_filter: Set[Fingerprint] = set([Fingerprint("foo")])
+    fingerprint_filter: Set[Fingerprint] = {Fingerprint("foo")}
 
     if valid_current_packet_uid:
         current_packet_uid = Uid("Foobar McFooface <foo@barmcfoofa.ce>")
@@ -256,7 +272,7 @@ def test_convert_uid_signature_packet(
         if not valid_current_packet_uid or issuer is None:
             assert not certifications and not revocations
         else:
-            if packet_type == "CertificationRevocation" and valid_current_packet_uid:
+            if packet_type == "CertificationRevocation" and valid_current_packet_uid and issuer_in_filter:
                 assert revocations[current_packet_uid][issuer] == [packet]  # type: ignore
             elif packet_type.endswith("Certification") and issuer_in_filter:
                 assert certifications[current_packet_uid][issuer] == [packet]  # type: ignore
@@ -350,6 +366,7 @@ def test_convert_signature_packet(
     valid_fingerprint: Fingerprint,
 ) -> None:
     certificate_fingerprint = None
+    key_revocations: Dict[Fingerprint, Path] = {}
     direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
     direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
     certifications: Dict[Uid, Dict[Fingerprint, List[Path]]] = defaultdict(lambda: defaultdict(list))
@@ -366,6 +383,7 @@ def test_convert_signature_packet(
             current_packet_mode=current_packet_mode,
             certificate_fingerprint=certificate_fingerprint,
             fingerprint_filter=None,
+            key_revocations=key_revocations,
             current_packet_fingerprint=None,
             current_packet_uid=None,
             direct_revocations=direct_revocations,
@@ -391,15 +409,16 @@ def test_convert_signature_packet(
             Path("foo.asc"),
             [
                 Path("--PublicKey"),
+                Path("--Signature"),
                 Path("--UserID"),
                 Path("--UserAttribute"),
                 Path("--PublicSubkey"),
                 Path("--Signature"),
             ],
             [
-                "".join(choice("ABCDEF" + digits) for x in range(40)),
+                "".join(choice("ABCDEF" + digits) for _ in range(40)),
                 "foo <foo@bar.com>",
-                "".join(choice("ABCDEF" + digits) for x in range(40)),
+                "".join(choice("ABCDEF" + digits) for _ in range(40)),
             ],
             "bar",
             does_not_raise(),
@@ -489,6 +508,35 @@ def test_persist_subkey_revocations(
     packet_join_mock.assert_called_once_with(
         packets=[revocation_packet],
         output=keyring_dir / "subkey" / valid_fingerprint / "revocation" / f"{valid_fingerprint}.asc",
+        force=True,
+    )
+
+
+@patch("libkeyringctl.keyring.packet_signature_creation_time")
+@patch("libkeyringctl.keyring.packet_join")
+def test_persist_directkey_revocations(
+    packet_join_mock: Mock,
+    packet_signature_creation_time_mock: Mock,
+    working_dir: Path,
+    keyring_dir: Path,
+    valid_fingerprint: Fingerprint,
+) -> None:
+    revocation_packet = working_dir / "latest_revocation.asc"
+    directkey_revocations: Dict[Fingerprint, List[Path]] = {valid_fingerprint: [revocation_packet]}
+
+    dt = datetime(2000, 1, 12, 11, 22, 33)
+    packet_signature_creation_time_mock.return_value = dt
+    keyring.persist_direct_key_revocations(
+        key_dir=keyring_dir,
+        direct_key_revocations=directkey_revocations,
+    )
+    packet_join_mock.assert_called_once_with(
+        packets=[revocation_packet],
+        output=keyring_dir
+        / "directkey"
+        / "revocation"
+        / valid_fingerprint
+        / f"{dt.strftime(PACKET_FILENAME_DATETIME_FORMAT)}.asc",
         force=True,
     )
 
@@ -719,7 +767,7 @@ def test_get_fingerprints_from_paths(keyring_dir: Path, valid_fingerprint: str, 
     fingerprint_subkey_asc = fingerprint_subkey_dir / (fingerprint_subkey_dir.name + ".asc")
     fingerprint_subkey_asc.touch()
 
-    assert keyring.get_fingerprints_from_paths(sources=[fingerprint_subkey_dir]) == set(
-        [Fingerprint(valid_subkey_fingerprint)]
-    )
-    assert keyring.get_fingerprints_from_paths(sources=[fingerprint_dir]) == set([Fingerprint(valid_fingerprint)])
+    assert keyring.get_fingerprints_from_paths(sources=[fingerprint_subkey_dir]) == {
+        Fingerprint(valid_subkey_fingerprint)
+    }
+    assert keyring.get_fingerprints_from_paths(sources=[fingerprint_dir]) == {Fingerprint(valid_fingerprint)}

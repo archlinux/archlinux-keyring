@@ -21,6 +21,7 @@ from .sequoia import keyring_split
 from .sequoia import latest_certification
 from .sequoia import packet_dump_field
 from .sequoia import packet_join
+from .sequoia import packet_signature_creation_time
 from .sequoia import packet_split
 from .trust import certificate_trust
 from .trust import certificate_trust_from_paths
@@ -29,11 +30,14 @@ from .types import Fingerprint
 from .types import Trust
 from .types import Uid
 from .types import Username
+from .util import contains_fingerprint
 from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
 from .util import get_fingerprint_from_partial
 from .util import simplify_ascii
 from .util import transform_fd_to_tmpfile
+
+PACKET_FILENAME_DATETIME_FORMAT: str = "%Y-%m-%d_%H-%M-%S"
 
 
 def is_pgp_fingerprint(string: str) -> bool:
@@ -93,6 +97,7 @@ def convert_pubkey_signature_packet(
     certificate_fingerprint: Fingerprint,
     fingerprint_filter: Optional[Set[Fingerprint]],
     current_packet_fingerprint: Optional[Fingerprint],
+    key_revocations: Dict[Fingerprint, Path],
     direct_revocations: Dict[Fingerprint, List[Path]],
     direct_sigs: Dict[Fingerprint, List[Path]],
 ) -> None:
@@ -102,6 +107,7 @@ def convert_pubkey_signature_packet(
     certificate_fingerprint: The public key certificate fingerprint
     fingerprint_filter: Optional list of fingerprints of PGP public keys that all certifications will be filtered with
     current_packet_fingerprint: Optional certificate fingerprint of the current packet
+    key_revocation: A dictionary of key revocation packets
     direct_revocations: A dictionary of direct key revocations
     direct_sigs: A dictionary of direct key signatures
     """
@@ -114,13 +120,20 @@ def convert_pubkey_signature_packet(
 
     if not issuer:
         debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")
+        return
+
+    if not certificate_fingerprint.endswith(issuer):
+        debug(f"skipping direct key signature because {issuer} is a third-party and not a self signature")
+        return
+
+    if signature_type == "KeyRevocation":
+        key_revocations[issuer] = packet
+    elif signature_type == "DirectKey" or signature_type.endswith("Certification"):
+        direct_sigs[issuer].append(packet)
+    elif signature_type == "CertificationRevocation":
+        direct_revocations[issuer].append(packet)
     else:
-        if signature_type == "KeyRevocation" and certificate_fingerprint.endswith(issuer):
-            direct_revocations[issuer].append(packet)
-        elif signature_type in ["DirectKey", "GenericCertification"]:
-            direct_sigs[issuer].append(packet)
-        else:
-            raise Exception(f"unknown signature type: {signature_type}")
+        raise Exception(f"unknown signature type: {signature_type}")
 
 
 def convert_uid_signature_packet(
@@ -149,11 +162,12 @@ def convert_uid_signature_packet(
         debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")
     else:
         if signature_type == "CertificationRevocation":
-            revocations[current_packet_uid][issuer].append(packet)
+            if fingerprint_filter is None or contains_fingerprint(fingerprints=fingerprint_filter, fingerprint=issuer):
+                revocations[current_packet_uid][issuer].append(packet)
+            else:
+                debug(f"The revocation by issuer {issuer} is not appended because it is not in the filter")
         elif signature_type.endswith("Certification"):
-            # TODO: extend fp filter to all certifications
-            # TODO: use contains_fingerprint
-            if fingerprint_filter is None or any([fp.endswith(issuer) for fp in fingerprint_filter]):
+            if fingerprint_filter is None or contains_fingerprint(fingerprints=fingerprint_filter, fingerprint=issuer):
                 debug(f"The certification by issuer {issuer} is appended as it is found in the filter.")
                 certifications[current_packet_uid][issuer].append(packet)
             else:
@@ -205,6 +219,7 @@ def convert_signature_packet(
     current_packet_mode: Optional[str],
     certificate_fingerprint: Optional[Fingerprint],
     fingerprint_filter: Optional[Set[Fingerprint]],
+    key_revocations: Dict[Fingerprint, Path],
     current_packet_fingerprint: Optional[Fingerprint],
     current_packet_uid: Optional[Uid],
     direct_revocations: Dict[Fingerprint, List[Path]],
@@ -218,11 +233,12 @@ def convert_signature_packet(
 
     packet: The Path of the packet file to process
     certificate_fingerprint: The public key certificate fingerprint
+    fingerprint_filter: Optional list of fingerprints of PGP public keys that all certifications will be filtered with
+    key_revocation: A dictionary containing all key revocation packet
     current_packet_fingerprint: Optional certificate fingerprint of the current packet
     current_packet_uid: Optional Uid of the current packet
     direct_revocations: A dictionary of direct key revocations
     direct_sigs: A dictionary of direct key signatures
-    fingerprint_filter: Optional list of fingerprints of PGP public keys that all certifications will be filtered with
     certifications: A dictionary containing all certificaions
     revocations: A dictionary containing all revocations
     subkey_bindings: A dictionary containing all subkey binding signatures
@@ -238,6 +254,7 @@ def convert_signature_packet(
             certificate_fingerprint=certificate_fingerprint,
             fingerprint_filter=fingerprint_filter,
             current_packet_fingerprint=current_packet_fingerprint,
+            key_revocations=key_revocations,
             direct_revocations=direct_revocations,
             direct_sigs=direct_sigs,
         )
@@ -299,8 +316,7 @@ def convert_certificate(
     # root packets
     certificate_fingerprint: Optional[Fingerprint] = None
     pubkey: Optional[Path] = None
-    # TODO: direct key certifications are not yet selecting the latest sig, owner may have multiple
-    # TODO: direct key certifications are not yet single packet per file
+    key_revocations: Dict[Fingerprint, Path] = {}
     direct_sigs: Dict[Fingerprint, List[Path]] = defaultdict(list)
     direct_revocations: Dict[Fingerprint, List[Path]] = defaultdict(list)
 
@@ -318,10 +334,6 @@ def convert_certificate(
     current_packet_mode: Optional[str] = None
     current_packet_fingerprint: Optional[Fingerprint] = None
     current_packet_uid: Optional[Uid] = None
-
-    # XXX: PrimaryKeyBinding
-
-    # TODO: remove 3rd party direct key signatures, seems to be leaked by export-clean
 
     debug(f"Processing certificate {certificate}")
 
@@ -366,6 +378,7 @@ def convert_certificate(
                 fingerprint_filter=fingerprint_filter,
                 current_packet_fingerprint=current_packet_fingerprint,
                 current_packet_uid=current_packet_uid,
+                key_revocations=key_revocations,
                 direct_revocations=direct_revocations,
                 direct_sigs=direct_sigs,
                 certifications=certifications,
@@ -395,6 +408,7 @@ def convert_certificate(
         direct_revocations=direct_revocations,
         certificate_fingerprint=certificate_fingerprint,
         pubkey=pubkey,
+        key_revocations=key_revocations,
         subkeys=subkeys,
         subkey_bindings=subkey_bindings,
         subkey_revocations=subkey_revocations,
@@ -412,6 +426,7 @@ def persist_key_material(
     direct_revocations: Dict[Fingerprint, List[Path]],
     certificate_fingerprint: Fingerprint,
     pubkey: Path,
+    key_revocations: Dict[Fingerprint, Path],
     subkeys: Dict[Fingerprint, Path],
     subkey_bindings: Dict[Fingerprint, List[Path]],
     subkey_revocations: Dict[Fingerprint, List[Path]],
@@ -426,6 +441,7 @@ def persist_key_material(
     direct_revocations: A dictionary of direct key revocations
     certificate_fingerprint: The public key certificate fingerprint
     pubkey: The Path of the PGP packet representing the public key material
+    key_revocations: A dictionary containing all key revocations
     subkeys: A dictionary of Paths per Fingerprint that represent the subkey material of the certificate
     subkey_bindings: A dictionary containing all subkey binding signatures
     subkey_revocations: A dictionary containing all subkey revocations
@@ -438,6 +454,11 @@ def persist_key_material(
         certificate_fingerprint=certificate_fingerprint,
         pubkey=pubkey,
         key_dir=key_dir,
+    )
+
+    persist_key_revocations(
+        key_dir=key_dir,
+        key_revocations=key_revocations,
     )
 
     persist_direct_key_certifications(
@@ -589,6 +610,26 @@ def persist_subkey_revocations(
         packet_join(packets=[revocation], output=output_file, force=True)
 
 
+def persist_key_revocations(
+    key_revocations: Dict[Fingerprint, Path],
+    key_dir: Path,
+) -> None:
+    """Persist the key revocation
+
+    Parameters
+    ----------
+    key_revocations: Dictionary with key revocation
+    key_dir: The root directory below which the revocation is persisted
+    """
+
+    for issuer, revocation in key_revocations.items():
+        output_file = key_dir / "revocation" / f"{issuer}.asc"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        debug(f"Writing file {output_file} from {str(revocation)}")
+        packet_join(packets=[revocation], output=output_file, force=True)
+
+
 def persist_direct_key_certifications(
     direct_key_certifications: Dict[Fingerprint, List[Path]],
     key_dir: Path,
@@ -603,10 +644,14 @@ def persist_direct_key_certifications(
     """
 
     for issuer, certifications in direct_key_certifications.items():
-        output_file = key_dir / "certification" / f"{issuer}.asc"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        debug(f"Writing file {output_file} from {[str(cert) for cert in certifications]}")
-        packet_join(packets=certifications, output=output_file, force=True)
+        output_dir = key_dir / "directkey" / "certification" / issuer
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        for certification in certifications:
+            creation_time = packet_signature_creation_time(certification).strftime(PACKET_FILENAME_DATETIME_FORMAT)
+            output_file = output_dir / f"{creation_time}.asc"
+            debug(f"Writing file {output_file} from {str(certification)}")
+            packet_join(packets=[certification], output=output_file, force=True)
 
 
 def persist_direct_key_revocations(
@@ -622,10 +667,14 @@ def persist_direct_key_revocations(
     """
 
     for issuer, certifications in direct_key_revocations.items():
-        output_file = key_dir / "revocation" / f"{issuer}.asc"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        debug(f"Writing file {output_file} from {[str(cert) for cert in certifications]}")
-        packet_join(packets=certifications, output=output_file, force=True)
+        output_dir = key_dir / "directkey" / "revocation" / issuer
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        for certification in certifications:
+            creation_time = packet_signature_creation_time(certification).strftime(PACKET_FILENAME_DATETIME_FORMAT)
+            output_file = output_dir / f"{creation_time}.asc"
+            debug(f"Writing file {output_file} from {str(certification)}")
+            packet_join(packets=[certification], output=output_file, force=True)
 
 
 def persist_uid_certifications(
@@ -937,7 +986,7 @@ def get_packets_from_path(path: Path) -> List[Path]:
 
 
 def get_packets_from_listing(path: Path) -> List[Path]:
-    """Collects packets from a listing of directories holding one level each by calling `get_get_packets_from_path`.
+    """Collects packets from a listing of directories holding one level each by calling `get_packets_from_path`.
 
     Parameters
     ----------
@@ -995,6 +1044,11 @@ def export(
         packets += get_packets_from_path(cert_dir)
         packets += get_packets_from_listing(cert_dir / "subkey")
         packets += get_packets_from_listing(cert_dir / "uid")
+
+        directkey_path = cert_dir / "directkey"
+        directkeys = directkey_path.iterdir() if directkey_path.exists() else []
+        for path in directkeys:
+            packets += get_packets_from_listing(path)
 
         output_path = temp_dir / f"{cert_dir.name}.asc"
         debug(f"Joining {cert_dir} in {output_path}")
