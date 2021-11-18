@@ -17,6 +17,15 @@ class Trust(Enum):
     full = auto()
 
 
+class TrustFilter(Enum):
+    unknown = "unknown"
+    revoked = "revoked"
+    marginal = "marginal"
+    full = "full"
+    unrevoked = "unrevoked"
+    all = "all"
+
+
 TRUST_MAX_LENGTH: int = max([len(e.name) for e in Trust])
 
 

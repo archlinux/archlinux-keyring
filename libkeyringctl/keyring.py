@@ -25,9 +25,11 @@ from .sequoia import packet_signature_creation_time
 from .sequoia import packet_split
 from .trust import certificate_trust
 from .trust import certificate_trust_from_paths
+from .trust import filter_by_trust
 from .trust import format_trust_label
 from .types import Fingerprint
 from .types import Trust
+from .types import TrustFilter
 from .types import Uid
 from .types import Username
 from .util import contains_fingerprint
@@ -1097,7 +1099,12 @@ def build(
     )
 
 
-def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_keys: bool = False) -> None:
+def list_keyring(
+    keyring_root: Path,
+    sources: Optional[List[Path]] = None,
+    main_keys: bool = False,
+    trust_filter: TrustFilter = TrustFilter.all,
+) -> None:
     """List certificates in the keyring
 
     If sources contains directories, all certificate below them are considered.
@@ -1108,6 +1115,7 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
     sources: A list of username, fingerprint or directories from which to read PGP packet information
         (defaults to `keyring_root`)
     main_keys: List main keys instead of packager keys (defaults to False)
+    trust_filter: Filter the listing based on trust
     """
 
     keyring_dir = keyring_root / ("main" if main_keys else "packager")
@@ -1130,6 +1138,8 @@ def list_keyring(keyring_root: Path, sources: Optional[List[Path]] = None, main_
             main_keys=get_fingerprints_from_paths([keyring_root / "main"]),
             all_fingerprints=get_fingerprints_from_paths([keyring_root]),
         )
+        if not filter_by_trust(trust=trust, trust_filter=trust_filter):
+            continue
         trust_label = format_trust_label(trust=trust)
         print(f"{username:<{username_length}} {certificate.name} {trust_label}")
 

@@ -10,6 +10,7 @@ from typing import Set
 from .types import Color
 from .types import Fingerprint
 from .types import Trust
+from .types import TrustFilter
 from .types import Uid
 from .util import contains_fingerprint
 from .util import get_cert_paths
@@ -236,3 +237,26 @@ def format_trust_label(trust: Trust) -> str:
     Text label representing the trust status as literal and icon with colors
     """
     return f"{trust_color(trust).value}{trust_icon(trust)} {trust.name}{Color.RST.value}"
+
+
+def filter_by_trust(trust: Trust, trust_filter: TrustFilter) -> bool:
+    """Filters a trust by a given filter and returns true if within the rules
+
+    Parameters
+    ----------
+    trust: Trust to check for being filtered
+    trust_filter: Filter rules to check the trust against
+
+    Returns
+    -------
+    True if the given trust is within the filter rules
+    """
+    trust_map = {
+        TrustFilter.unknown: [Trust.unknown],
+        TrustFilter.marginal: [Trust.marginal],
+        TrustFilter.full: [Trust.full],
+        TrustFilter.revoked: [Trust.revoked],
+        TrustFilter.unrevoked: [Trust.unknown, Trust.marginal, Trust.full],
+        TrustFilter.all: [Trust.revoked, Trust.unknown, Trust.marginal, Trust.full],
+    }
+    return trust in trust_map[trust_filter]

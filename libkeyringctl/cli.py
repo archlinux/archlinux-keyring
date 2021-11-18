@@ -15,6 +15,7 @@ from .keyring import convert
 from .keyring import export
 from .keyring import inspect_keyring
 from .keyring import list_keyring
+from .types import TrustFilter
 from .util import absolute_path
 from .util import cwd
 from .verify import verify
@@ -81,6 +82,12 @@ list_parser = subcommands.add_parser(
     help="list the certificates in the keyring",
 )
 list_parser.add_argument("--main", action="store_true", help="List main signing keys instead of packager keys")
+list_parser.add_argument(
+    "--trust",
+    choices=[e.value for e in TrustFilter],
+    default=TrustFilter.all.value,
+    help="Filter the list based on trust",
+)
 list_parser.add_argument(
     "source",
     nargs="*",
@@ -180,10 +187,12 @@ def main() -> None:  # noqa: ignore=C901
                     target_dir=keyring_root.parent / "build",
                 )
             elif "list" == args.subcommand:
+                trust_filter = TrustFilter[args.trust]
                 list_keyring(
                     keyring_root=keyring_root,
                     sources=args.source,
                     main_keys=args.main,
+                    trust_filter=trust_filter,
                 )
             elif "inspect" == args.subcommand:
                 print(

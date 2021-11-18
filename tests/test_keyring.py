@@ -728,6 +728,12 @@ def test_list_keyring(working_dir: Path, keyring_dir: Path) -> None:
                     keyring.list_keyring(keyring_root=keyring_dir, sources=[path], main_keys=False)
                     print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
                     assert name in print_args[0] and path.stem in print_args[0]
+        with patch("builtins.print") as print_mock:
+            keyring.list_keyring(
+                keyring_root=keyring_dir, sources=paths, main_keys=False, trust_filter=TrustFilter.revoked
+            )
+            print_args = [mock_call[1][0] for mock_call in print_mock.mock_calls]
+            assert not print_args
 
 
 @create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")

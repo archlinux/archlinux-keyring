@@ -8,12 +8,14 @@ from pytest import raises
 
 from libkeyringctl.trust import certificate_trust
 from libkeyringctl.trust import certificate_trust_from_paths
+from libkeyringctl.trust import filter_by_trust
 from libkeyringctl.trust import format_trust_label
 from libkeyringctl.trust import trust_color
 from libkeyringctl.trust import trust_icon
 from libkeyringctl.types import Color
 from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Trust
+from libkeyringctl.types import TrustFilter
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 
@@ -327,3 +329,36 @@ def test_format_trust_label(trust_color_mock: Mock, trust_icon_mock: Mock, trust
     trust_icon_mock.return_value = "ICON"
     trust_color_mock.return_value = Color.GREEN
     assert f"{Color.GREEN.value}ICON {trust.name}{Color.RST.value}" == format_trust_label(trust)
+
+
+@mark.parametrize(
+    "trust, trust_filter, result",
+    [
+        (Trust.revoked, TrustFilter.unknown, False),
+        (Trust.full, TrustFilter.unknown, False),
+        (Trust.marginal, TrustFilter.unknown, False),
+        (Trust.unknown, TrustFilter.unknown, True),
+        (Trust.revoked, TrustFilter.marginal, False),
+        (Trust.full, TrustFilter.marginal, False),
+        (Trust.marginal, TrustFilter.marginal, True),
+        (Trust.unknown, TrustFilter.marginal, False),
+        (Trust.revoked, TrustFilter.full, False),
+        (Trust.full, TrustFilter.full, True),
+        (Trust.marginal, TrustFilter.full, False),
+        (Trust.unknown, TrustFilter.full, False),
+        (Trust.revoked, TrustFilter.revoked, True),
+        (Trust.full, TrustFilter.revoked, False),
+        (Trust.marginal, TrustFilter.revoked, False),
+        (Trust.unknown, TrustFilter.revoked, False),
+        (Trust.revoked, TrustFilter.unrevoked, False),
+        (Trust.full, TrustFilter.unrevoked, True),
+        (Trust.marginal, TrustFilter.unrevoked, True),
+        (Trust.unknown, TrustFilter.unrevoked, True),
+        (Trust.revoked, TrustFilter.all, True),
+        (Trust.full, TrustFilter.all, True),
+        (Trust.marginal, TrustFilter.all, True),
+        (Trust.unknown, TrustFilter.all, True),
+    ],
+)
+def test_filter_by_trust(trust: Trust, trust_filter: TrustFilter, result: bool) -> None:
+    assert filter_by_trust(trust=trust, trust_filter=trust_filter) == result
