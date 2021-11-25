@@ -34,7 +34,7 @@ from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Uid
 from libkeyringctl.types import Username
 from libkeyringctl.util import cwd
-from libkeyringctl.util import simplify_ascii
+from libkeyringctl.util import simplify_uid
 from libkeyringctl.util import system
 
 test_keys: Dict[Username, List[Path]] = defaultdict(list)
@@ -133,7 +133,7 @@ def create_uid_certification(
             certificate: Path = test_certificates[certified][0]
             fingerprint: Fingerprint = Fingerprint(test_keyring_certificates[certified][0].name)
             issuer_fingerprint: Fingerprint = Fingerprint(test_keyring_certificates[issuer][0].name)
-            simplified_uid = Uid(simplify_ascii(uid))
+            simplified_uid = simplify_uid(Uid(uid))
 
             output: Path = (
                 working_dir

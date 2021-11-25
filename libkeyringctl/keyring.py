@@ -38,7 +38,7 @@ from .util import contains_fingerprint
 from .util import filter_fingerprints_by_trust
 from .util import get_cert_paths
 from .util import get_fingerprint_from_partial
-from .util import simplify_ascii
+from .util import simplify_uid
 from .util import transform_fd_to_tmpfile
 
 PACKET_FILENAME_DATETIME_FORMAT: str = "%Y-%m-%d_%H-%M-%S"
@@ -353,7 +353,7 @@ def convert_certificate(
         elif packet.name.endswith("--UserID"):
             current_packet_mode = "uid"
             current_packet_fingerprint = None
-            current_packet_uid = Uid(simplify_ascii(packet_dump_field(packet, "Value")))
+            current_packet_uid = Uid(packet_dump_field(packet, "Value"))
 
             if current_packet_uid in uids:
                 raise Exception(
@@ -549,7 +549,8 @@ def persist_uids(
     """
 
     for uid, uid_packet in uids.items():
-        output_file = key_dir / "uid" / uid / f"{uid}.asc"
+        simplified_uid = simplify_uid(uid)
+        output_file = key_dir / "uid" / simplified_uid / f"{simplified_uid}.asc"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         debug(f"Writing file {output_file} from {uid_packet}")
         packet_join(packets=[uid_packet], output=output_file, force=True)
@@ -703,7 +704,7 @@ def persist_uid_certifications(
 
     for uid, uid_certifications in certifications.items():
         for issuer, issuer_certifications in uid_certifications.items():
-            certification_dir = key_dir / "uid" / uid / "certification"
+            certification_dir = key_dir / "uid" / simplify_uid(uid) / "certification"
             certification_dir.mkdir(parents=True, exist_ok=True)
             certification = latest_certification(issuer_certifications)
             output_file = certification_dir / f"{issuer}.asc"
@@ -728,7 +729,7 @@ def persist_uid_revocations(
 
     for uid, uid_revocations in revocations.items():
         for issuer, issuer_revocations in uid_revocations.items():
-            revocation_dir = key_dir / "uid" / uid / "revocation"
+            revocation_dir = key_dir / "uid" / simplify_uid(uid) / "revocation"
             revocation_dir.mkdir(parents=True, exist_ok=True)
             revocation = latest_certification(issuer_revocations)
             output_file = revocation_dir / f"{issuer}.asc"

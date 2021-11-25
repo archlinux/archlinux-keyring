@@ -18,7 +18,7 @@ from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Uid
 from libkeyringctl.util import get_cert_paths
 from libkeyringctl.util import get_fingerprint_from_partial
-from libkeyringctl.util import simplify_ascii
+from libkeyringctl.util import simplify_uid
 from libkeyringctl.util import system
 
 
@@ -123,7 +123,7 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
 
                             assert_packet_kind(path=uid_path, expected="User")
 
-                            uid_value = Uid(simplify_ascii(packet_dump_field(packet=uid_path, field="Value")))
+                            uid_value = simplify_uid(Uid(packet_dump_field(packet=uid_path, field="Value")))
                             if uid_value != uid.name:
                                 raise Exception(f"Unexpected uid in file {str(uid_path)}: {uid_value}")
                         elif not uid_path.is_dir():

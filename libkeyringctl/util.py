@@ -2,6 +2,7 @@
 from collections.abc import Iterable
 from collections.abc import Iterator
 from contextlib import contextmanager
+from hashlib import sha256
 from os import chdir
 from os import environ
 from os import getcwd
@@ -28,6 +29,7 @@ from typing import Union
 
 from libkeyringctl.types import Fingerprint
 from libkeyringctl.types import Trust
+from libkeyringctl.types import Uid
 
 
 @contextmanager
@@ -312,3 +314,20 @@ def simplify_ascii(_str: str) -> str:
     _str = "".join([ascii_mapping_lookup.get(char) or char for char in _str])
     _str = sub("[^" + escape(simple_printable) + "]", "_", _str)
     return _str
+
+
+def simplify_uid(uid: Uid, hash_postfix: bool = True) -> str:
+    """Simplify a uid to contain more filesystem and printable friendly characters with an optional
+    collision resistant hash postfix.
+
+    Parameters
+    ----------
+    uid: Uid to simplify (e.g. 'Foobar McFooface <foobar@foo.face>')
+    hash_postfix: Whether to add a hash of the uid as postfix
+
+    Returns
+    -------
+    Simplified str representation of uid
+    """
+    _hash = "" if not hash_postfix else f"_{sha256(uid.encode()).hexdigest()[:8]}"
+    return f"{simplify_ascii(_str=uid)}{_hash}"
