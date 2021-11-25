@@ -354,6 +354,10 @@ def convert_certificate(
             current_packet_fingerprint = None
             current_packet_uid = Uid(simplify_ascii(packet_dump_field(packet, "Value")))
 
+            if current_packet_uid in uids:
+                raise Exception(
+                    f"Duplicate User ID {current_packet_uid} used in packet {uids[current_packet_uid]} and {packet}"
+                )
             uids[current_packet_uid] = packet
         elif packet.name.endswith("UserAttribute"):
             current_packet_mode = "uattr"

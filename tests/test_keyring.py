@@ -426,6 +426,22 @@ def test_convert_signature_packet(
         (
             Path("foo.asc"),
             [
+                Path("--PublicKey"),
+                Path("--Signature"),
+                Path("--UserID"),
+                Path("--UserID"),
+            ],
+            [
+                "".join(choice("ABCDEF" + digits) for _ in range(40)),
+                "foo <foo@bar.com>",
+                "foo <foo@bar.com>",
+            ],
+            "bar",
+            raises(Exception),
+        ),
+        (
+            Path("foo.asc"),
+            [
                 Path("--SecretKey"),
             ],
             [],
