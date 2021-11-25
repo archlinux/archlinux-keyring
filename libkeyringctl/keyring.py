@@ -28,6 +28,7 @@ from .trust import certificate_trust_from_paths
 from .trust import filter_by_trust
 from .trust import format_trust_label
 from .trust import trust_color
+from .types import Color
 from .types import Fingerprint
 from .types import Trust
 from .types import TrustFilter
@@ -1179,7 +1180,9 @@ def inspect_keyring(working_dir: Path, keyring_root: Path, sources: Optional[Lis
 
         fingerprints: Dict[Fingerprint, Username] = get_fingerprints_from_certificate_directory(
             paths=[keyring_root / "packager"]
-        ) | get_fingerprints_from_certificate_directory(paths=[keyring_root / "main"], postfix=" (main)")
+        ) | get_fingerprints_from_certificate_directory(
+            paths=[keyring_root / "main"], postfix=f" {Color.BOLD.value}(main){Color.RST.value}"
+        )
 
         main_keys = get_fingerprints_from_paths([keyring_root / "main"])
         all_fingerprints = get_fingerprints_from_paths([keyring_root])
