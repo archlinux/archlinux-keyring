@@ -1089,6 +1089,7 @@ def build(
     """
 
     target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir.touch()
 
     keyring: Path = target_dir / Path("archlinux.gpg")
     export(working_dir=working_dir, keyring_root=keyring_root, output=keyring)

@@ -14,7 +14,11 @@ The PGP packets describing the main signing keys can be found below the
 The following packages need to be installed to be able to create a PGP keyring
 from the provided data structure and to install it:
 
+Build:
 * make
+* findutils
+
+Runtime:
 * python
 * sequoia-sq
 
