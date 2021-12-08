@@ -25,6 +25,7 @@ from libkeyringctl.types import Username
 
 from .conftest import create_certificate
 from .conftest import create_key_revocation
+from .conftest import create_signature_revocation
 from .conftest import create_uid_certification
 from .conftest import test_all_fingerprints
 from .conftest import test_certificates
@@ -563,7 +564,7 @@ def test_convert(working_dir: Path, keyring_dir: Path) -> None:
         working_dir=working_dir,
         keyring_root=keyring_dir,
         sources=test_certificates[Username("foobar")],
-        target_dir=keyring_dir,
+        target_dir=keyring_dir / "packager",
     )
 
     with raises(Exception):
@@ -571,8 +572,19 @@ def test_convert(working_dir: Path, keyring_dir: Path) -> None:
             working_dir=working_dir,
             keyring_root=keyring_dir,
             sources=test_keys[Username("foobar")],
-            target_dir=keyring_dir,
+            target_dir=keyring_dir / "packager",
         )
+
+
+@create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_uid_certification(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_signature_revocation(issuer=Username("main"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+def test_clean_keyring(working_dir: Path, keyring_dir: Path) -> None:
+    # first pass clean up certification
+    keyring.clean_keyring(keyring=keyring_dir)
+    # second pass skipping clean up because lack of certification
+    keyring.clean_keyring(keyring=keyring_dir)
 
 
 @create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")

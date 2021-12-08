@@ -286,6 +286,26 @@ def convert_signature_packet(
         raise Exception(f'unknown signature root for "{packet.name}"')
 
 
+def clean_keyring(keyring: Path) -> None:
+    """Clean the keyring by f.e. removing old obsolete certifications with matching revocations.
+
+    Parameters
+    ----------
+    keyring: Root directory of the keyring containing all keys to clean.
+    """
+    for cert in get_cert_paths(paths=[keyring]):
+        for uid in (cert / "uid").iterdir():
+            certifications = uid / "certification"
+            revocations = uid / "revocation"
+            if not certifications.exists() or not revocations.exists():
+                continue
+            for revocation in revocations.iterdir():
+                certification = certifications / revocation.name
+                if certification.exists():
+                    debug(f"Cleaning up old certification {certification} for revocation {revocation}")
+                    certification.unlink()
+
+
 def convert_certificate(
     working_dir: Path,
     certificate: Path,
@@ -503,6 +523,7 @@ def persist_key_material(
 
     persist_uid_certifications(
         certifications=certifications,
+        revocations=revocations,
         key_dir=key_dir,
     )
 
@@ -688,6 +709,7 @@ def persist_direct_key_revocations(
 
 def persist_uid_certifications(
     certifications: Dict[Uid, Dict[Fingerprint, List[Path]]],
+    revocations: Dict[Uid, Dict[Fingerprint, List[Path]]],
     key_dir: Path,
 ) -> None:
     """Persist the certifications of a root key to file(s)
@@ -696,14 +718,20 @@ def persist_uid_certifications(
     PositiveCertifications for all User IDs of the given root key.
     All certifications are persisted in per User ID certification directories below key_dir.
 
+    Certifications that have a matching revocation are skipped to match behavior of import-clean.
+
     Parameters
     ----------
     certifications: The certifications to write to file
+    revocations: The revocations to check against if certifications need to be persisted.
     key_dir: The root directory below which certifications are persisted
     """
 
     for uid, uid_certifications in certifications.items():
         for issuer, issuer_certifications in uid_certifications.items():
+            # skip certifications if there is a revocation present to match import-clean behavior
+            if uid in revocations and issuer in revocations[uid] and revocations[uid][issuer]:
+                continue
             certification_dir = key_dir / "uid" / simplify_uid(uid) / "certification"
             certification_dir.mkdir(parents=True, exist_ok=True)
             certification = latest_certification(issuer_certifications)
@@ -825,6 +853,8 @@ def convert(
         user_dir = path.parent
         (target_dir / user_dir.name).mkdir(parents=True, exist_ok=True)
         copytree(src=user_dir, dst=(target_dir / user_dir.name), dirs_exist_ok=True)
+
+    clean_keyring(keyring=target_dir)
 
     return target_dir
 

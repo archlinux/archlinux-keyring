@@ -159,6 +159,11 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
                                 )
                                 if issuer != sig.stem:
                                     raise Exception(f"Unexpected issuer in file {str(sig)}: {issuer}")
+
+                                certification = uid_path.parent / "certification" / sig.name
+                                if certification.exists():
+                                    raise Exception(f"Certification exists for revocation {str(sig)}: {certification}")
+
                                 debug(f"OK: {sig}")
                         else:
                             raise Exception(f"Unexpected directory in certificate {certificate.name}: {str(uid_path)}")
