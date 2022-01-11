@@ -45,8 +45,6 @@ build_install:
   before_script:
     - pacman -Syu --needed --noconfirm make python sequoia-sq
   script:
-    - ./keyringctl import --main master master-revoked
-    - ./keyringctl import packager packager-revoked
     - make
     - make install PREFIX=/usr
     - pacman-key --init
@@ -60,8 +58,6 @@ keyring_check:
   before_script:
     - pacman -Syu --needed --noconfirm make python sequoia-sq
   script:
-    - ./keyringctl import --main master master-revoked
-    - ./keyringctl import packager packager-revoked
     - ./keyringctl check
   only:
     changes:
