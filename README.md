@@ -15,14 +15,17 @@ The following packages need to be installed to be able to create a PGP keyring
 from the provided data structure and to install it:
 
 Build:
+
 * make
 * findutils
 
 Runtime:
+
 * python
 * sequoia-sq
 
 Optional:
+
 * hopenpgp-tools (verify)
 * sq-keyring-linter (verify)
 * git (ci)
