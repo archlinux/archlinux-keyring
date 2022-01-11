@@ -21,7 +21,7 @@ exclude = '''
 source = ["libkeyringctl"]
 
 [tool.coverage.report]
-omit = ["tests/*", ".tox/*"]
+include = ["libkeyringctl/*", "keyringctl"]
 precision = 2
 show_missing = true
 
