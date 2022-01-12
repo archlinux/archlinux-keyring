@@ -56,12 +56,13 @@ keyring_check:
   stage: test
   needs: []
   before_script:
-    - pacman -Syu --needed --noconfirm make python sequoia-sq
+    - pacman -Syu --needed --noconfirm make python sequoia-sq git
   script:
     - ./keyringctl check
+    - ./keyringctl ci
   only:
     changes:
-      - keyring
+      - keyring/**/*
       - keyringctl
       - libkeyringctl/*
       - tests/*
