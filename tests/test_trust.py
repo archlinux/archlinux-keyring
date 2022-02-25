@@ -161,6 +161,23 @@ def test_certificate_trust_three_main_signature_gives_full_trust(working_dir: Pa
     assert Trust.full == trust
 
 
+@create_certificate(username=Username("main1"), uids=[Uid("main1 <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("main2"), uids=[Uid("main2 <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("main3"), uids=[Uid("main3 <foo@bar.xyz>")], keyring_type="main")
+@create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
+@create_uid_certification(issuer=Username("main1"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_uid_certification(issuer=Username("main2"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_uid_certification(issuer=Username("main3"), certified=Username("foobar"), uid=Uid("foobar <foo@bar.xyz>"))
+@create_key_revocation(username=Username("main3"), keyring_type="main")
+def test_certificate_trust_three_main_signature_one_revoked(working_dir: Path, keyring_dir: Path) -> None:
+    trust = certificate_trust(
+        test_keyring_certificates[Username("foobar")][0],
+        test_main_fingerprints,
+        test_all_fingerprints,
+    )
+    assert Trust.marginal == trust
+
+
 @create_certificate(username=Username("main"), uids=[Uid("main <foo@bar.xyz>")], keyring_type="main")
 @create_certificate(username=Username("foobar"), uids=[Uid("foobar <foo@bar.xyz>")])
 @create_key_revocation(username=Username("foobar"))

@@ -85,6 +85,14 @@ def certificate_trust(  # noqa: ignore=C901
     """
 
     fingerprint: Fingerprint = Fingerprint(certificate.name)
+    keyring_root = certificate.parent.parent.parent
+
+    # collect revoked main keys
+    main_keys_revoked: Set[Fingerprint] = set()
+    for main_key in main_keys:
+        for revocation in keyring_root.glob(f"main/*/{main_key}/revocation/*.asc"):
+            if main_key.endswith(revocation.stem):
+                main_keys_revoked.add(main_key)
 
     revocations: Set[Fingerprint] = set()
     # TODO: what about direct key revocations/signatures?
@@ -130,6 +138,9 @@ def certificate_trust(  # noqa: ignore=C901
                 raise Exception(f"Unknown issuer: {issuer}")
             # only take main key certifications into account
             if not contains_fingerprint(fingerprints=main_keys, fingerprint=issuer):
+                continue
+            # do not care about revoked main keys
+            if contains_fingerprint(fingerprints=main_keys_revoked, fingerprint=issuer):
                 continue
             # do not care about certifications that are revoked
             if contains_fingerprint(fingerprints=revocations, fingerprint=issuer):
