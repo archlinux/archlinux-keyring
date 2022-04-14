@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-from collections.abc import Iterable
-from collections.abc import Iterator
 from contextlib import contextmanager
 from hashlib import sha256
 from os import chdir
 from os import environ
 from os import getcwd
 from pathlib import Path
+from platform import python_version_tuple
 from re import escape
 from re import split
 from re import sub
@@ -22,6 +21,14 @@ from traceback import print_stack
 from typing import IO
 from typing import AnyStr
 from typing import Dict
+
+# NOTE: remove after python 3.8.x is no longer supported upstream
+if int(python_version_tuple()[1]) < 9:  # pragma: no cover
+    from typing import Iterable
+    from typing import Iterator
+else:
+    from collections.abc import Iterable
+    from collections.abc import Iterator
 from typing import List
 from typing import Optional
 from typing import Set

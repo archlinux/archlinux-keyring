@@ -1,16 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from collections import defaultdict
-from collections.abc import Iterable
 from itertools import chain
 from logging import debug
 from logging import error
 from pathlib import Path
+from platform import python_version_tuple
 from re import match
 from shutil import copytree
 from tempfile import NamedTemporaryFile
 from tempfile import mkdtemp
 from typing import Dict
+
+# NOTE: remove after python 3.8.x is no longer supported upstream
+if int(python_version_tuple()[1]) < 9:  # pragma: no cover
+    from typing import Iterable
+else:
+    from collections.abc import Iterable
 from typing import List
 from typing import Optional
 from typing import Set
