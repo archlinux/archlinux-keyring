@@ -121,17 +121,42 @@ how to provide fixes or improvements for the code base.
 
 [Releases of
 archlinux-keyring](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/tags)
-are created by its current maintainer [Christian
-Hesse](https://gitlab.archlinux.org/eworm). Tags are signed using the PGP key
-with the ID `02FD1C7A934E614545849F19A6234074498E9CEE`.
+are exclusively created by [keyring maintainers](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/project_members?with_inherited_permissions=exclude).
 
-To verify a tag, first import the relevant PGP key:
+The tags are signed with one of the following legitimate keys:
 
-```bash
-gpg --auto-key-locate wkd --search-keys eworm@archlinux.org
+```
+Christian Hesse <eworm@archlinux.org>
+02FD 1C7A 934E 6145 4584  9F19 A623 4074 498E 9CEE
+
+David Runge <dvzrv@archlinux.org>
+C7E7 8494 66FE 2358 3435  8837 7258 734B 41C3 1549
+
+Pierre Schmitz <pierre@archlinux.org>
+4AA4 767B BC9C 4B1D 18AE  28B7 7F2D 434B 9741 E8AC
+
+Florian Pritz <bluewind@archlinux.org>
+CFA6 AF15 E5C7 4149 FC1D  8C08 6D16 55C1 4CE1 C13E
+
+Giancarlo Razzolini <grazzolini@archlinux.org>
+ECCA C84C 1BA0 8A6C C8E6  3FBB F22F B1D7 8A77 AEAB
+
+Levente Polyak <anthraxx@archlinux.org>
+E240 B57E 2C46 30BA 768E  2F26 FC1B 547C 8D81 72C8
+
+Morten Linderud <foxboron@archlinux.org>
+C100 3466 7663 4E80 C940  FB9E 9C02 FF41 9FEC BE16
 ```
 
-Afterwards a tag can be verified from a clone of this repository:
+To verify a tag, first import the relevant PGP keys:
+
+```bash
+gpg --auto-key-locate wkd --search-keys <email-from-above>
+```
+
+Afterwards a tag can be verified from a clone of this repository. Please note
+that one **must** check the used key of the signature against the legitimate
+keys listed above:
 
 ```bash
 git verify-tag <tag>
