@@ -162,7 +162,8 @@ def transform_fd_to_tmpfile(working_dir: Path, sources: List[Path]) -> None:
     sources: Paths that should be iterated and all fd's transformed to tmpfiles
     """
     for index, source in enumerate(sources):
-        if str(source).startswith("/proc/self/fd"):
+        source_str = str(source)
+        if source_str.startswith("/proc/self/fd/") or source_str.startswith("/dev/fd/"):
             file = mkstemp(dir=working_dir, prefix=f"{source.name}", suffix=".fd")[1]
             with open(file, mode="wb") as f:
                 f.write(source.read_bytes())
