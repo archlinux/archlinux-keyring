@@ -33,11 +33,14 @@ test:
       - tests/*
       - .gitlab-ci.yml
       - Makefile
+  coverage: '/TOTAL.*\s([.\d]+)%/'
   artifacts:
     when: always
     reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: build/coverage.xml
       junit: build/junit-report.xml
-      cobertura: build/coverage.xml
 
 build_install:
   stage: test
