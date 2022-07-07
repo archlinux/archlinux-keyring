@@ -8,7 +8,7 @@ NOTE: All comment sections with a MODIFY note need to be edited. All checkboxes
 in the "Checks" section labeled as "Owner of new key" need to be checked by the
 owner of the new key or by a sponsor of a new packager.
 -->
-/assign @anthraxx @bluewind @dvzrv @grazzolini @pierre
+/assign @anthraxx @bluewind @diabonas @dvzrv @grazzolini @pierre
 /label ~"new packager key"
 /title New packager key of <!-- MODIFY: Add new packager key holder's username -->
 <!--
@@ -66,6 +66,7 @@ the details section.
 - [ ] The public key has been signed by all main key holders
   - [ ] @anthraxx
   - [ ] @bluewind
+  - [ ] @diabonas
   - [ ] @dvzrv
   - [ ] @grazzolini
   - [ ] @pierre

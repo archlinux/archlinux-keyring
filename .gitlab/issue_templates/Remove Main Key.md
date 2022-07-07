@@ -8,7 +8,7 @@ NOTE: All comment sections with a MODIFY note need to be edited. All checkboxes
 in the "Check" section labeled as "Main key holders" need to be checked for the
 accompanying merge request to be merged.
 -->
-/assign @anthraxx @bluewind @dvzrv @grazzolini @pierre
+/assign @anthraxx @bluewind @diabonas @dvzrv @grazzolini @pierre
 /label ~"remove main key"
 /title Remove main key of <!-- MODIFY: Add main key holder's username -->
 <!--
