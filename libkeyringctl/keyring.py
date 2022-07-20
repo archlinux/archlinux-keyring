@@ -125,8 +125,10 @@ def convert_pubkey_signature_packet(
     if not current_packet_fingerprint:
         raise Exception('missing current packet fingerprint for "{packet.name}"')
 
-    signature_type = packet_dump_field(packet=packet, field="Type")
-    issuer = get_fingerprint_from_partial(fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Issuer")))
+    signature_type = packet_dump_field(packet=packet, query="Type")
+    issuer = get_fingerprint_from_partial(
+        fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Hashed area|Unhashed area.Issuer"))
+    )
 
     if not issuer:
         debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")
@@ -165,8 +167,10 @@ def convert_uid_signature_packet(
     if not current_packet_uid:
         raise Exception('missing current packet uid for "{packet.name}"')
 
-    signature_type = packet_dump_field(packet=packet, field="Type")
-    issuer = get_fingerprint_from_partial(fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Issuer")))
+    signature_type = packet_dump_field(packet=packet, query="Type")
+    issuer = get_fingerprint_from_partial(
+        fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Hashed area|Unhashed area.Issuer"))
+    )
 
     if not issuer:
         debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")
@@ -207,8 +211,10 @@ def convert_subkey_signature_packet(
     if not current_packet_fingerprint:
         raise Exception('missing current packet fingerprint for "{packet.name}"')
 
-    signature_type = packet_dump_field(packet=packet, field="Type")
-    issuer = get_fingerprint_from_partial(fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Issuer")))
+    signature_type = packet_dump_field(packet=packet, query="Type")
+    issuer = get_fingerprint_from_partial(
+        fingerprint_filter or set(), Fingerprint(packet_dump_field(packet, "Hashed area|Unhashed area.Issuer"))
+    )
 
     if not issuer:
         debug(f"failed to resolve partial fingerprint {issuer}, skipping packet")

@@ -123,7 +123,7 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
 
                             assert_packet_kind(path=uid_path, expected="User")
 
-                            uid_value = simplify_uid(Uid(packet_dump_field(packet=uid_path, field="Value")))
+                            uid_value = simplify_uid(Uid(packet_dump_field(packet=uid_path, query="Value")))
                             if uid_value != uid.name:
                                 raise Exception(f"Unexpected uid in file {str(uid_path)}: {uid_value}")
                         elif not uid_path.is_dir():
@@ -139,7 +139,9 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
 
                                 issuer = get_fingerprint_from_partial(
                                     fingerprints=all_fingerprints,
-                                    fingerprint=Fingerprint(packet_dump_field(packet=sig, field="Issuer")),
+                                    fingerprint=Fingerprint(
+                                        packet_dump_field(packet=sig, query="Hashed area|Unhashed area.Issuer")
+                                    ),
                                 )
                                 if issuer != sig.stem:
                                     raise Exception(f"Unexpected issuer in file {str(sig)}: {issuer}")
@@ -155,7 +157,9 @@ def verify_integrity(certificate: Path, all_fingerprints: Set[Fingerprint]) -> N
 
                                 issuer = get_fingerprint_from_partial(
                                     fingerprints=all_fingerprints,
-                                    fingerprint=Fingerprint(packet_dump_field(packet=sig, field="Issuer")),
+                                    fingerprint=Fingerprint(
+                                        packet_dump_field(packet=sig, query="Hashed area|Unhashed area.Issuer")
+                                    ),
                                 )
                                 if issuer != sig.stem:
                                     raise Exception(f"Unexpected issuer in file {str(sig)}: {issuer}")
@@ -236,13 +240,13 @@ def assert_packet_kind(path: Path, expected: str) -> None:
 
 
 def assert_signature_type(path: Path, expected: str) -> None:
-    sig_type = packet_dump_field(packet=path, field="Type")
+    sig_type = packet_dump_field(packet=path, query="Type")
     if sig_type != expected:
         raise Exception(f"Unexpected packet type in file {str(path)} type: {sig_type} expected: {expected}")
 
 
 def assert_signature_type_certification(path: Path) -> None:
-    sig_type = packet_dump_field(packet=path, field="Type")
+    sig_type = packet_dump_field(packet=path, query="Type")
     if sig_type not in ["GenericCertification", "PersonaCertification", "CasualCertification", "PositiveCertification"]:
         raise Exception(f"Unexpected packet certification type in file {str(path)} type: {sig_type}")
 
@@ -253,13 +257,13 @@ def assert_is_pgp_fingerprint(path: Path, _str: str) -> None:
 
 
 def assert_filename_matches_packet_issuer_fingerprint(path: Path, check: str) -> None:
-    fingerprint = packet_dump_field(packet=path, field="Issuer Fingerprint")
+    fingerprint = packet_dump_field(packet=path, query="Unhashed area|Hashed area.Issuer Fingerprint")
     if not fingerprint == check:
         raise Exception(f"Unexpected packet fingerprint in file {str(path)}: {fingerprint}")
 
 
 def assert_filename_matches_packet_fingerprint(path: Path, check: str) -> None:
-    fingerprint = packet_dump_field(packet=path, field="Fingerprint")
+    fingerprint = packet_dump_field(packet=path, query="Fingerprint")
     if not fingerprint == check:
         raise Exception(f"Unexpected packet fingerprint in file {str(path)}: {fingerprint}")
 

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+from collections import deque
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
@@ -176,13 +177,23 @@ def packet_dump(packet: Path) -> str:
     return system(["sq", "packet", "dump", str(packet)])
 
 
-def packet_dump_field(packet: Path, field: str) -> str:
+def packet_dump_field(packet: Path, query: str) -> str:
     """Retrieve the value of a field from a PGP packet
+
+    Field queries are possible with the following notation during tree traversal:
+    - Use '.' to separate the parent section
+    - Use '*' as a wildcard for the current section
+    - Use '|' inside the current level as a logical OR
+
+    Example:
+    - Version
+    - Hashed area|Unhashed area.Issuer
+    - *.Issuer
 
     Parameters
     ----------
     packet: The path to the PGP packet to retrieve the value from
-    field: The name of the field
+    query: The name of the field as a query notation
 
     Raises
     ------
@@ -194,11 +205,49 @@ def packet_dump_field(packet: Path, field: str) -> str:
     """
 
     dump = packet_dump(packet)
-    lines = [line.strip() for line in dump.splitlines()]
-    lines = list(filter(lambda line: line.strip().startswith(f"{field}: "), lines))
-    if not lines:
-        raise Exception(f'Packet has no field "{field}"')
-    return lines[0].split(sep=": ", maxsplit=1)[1]
+
+    queries = deque(query.split("."))
+    path = [queries.popleft()]
+    depth = 0
+
+    # remove leading 4 space indention
+    lines = list(filter(lambda line: line.startswith("    "), dump.splitlines()))
+    lines = [sub(r"^ {4}", "", line, count=1) for line in lines]
+    # filter empty lines
+    lines = list(filter(lambda line: line.strip(), lines))
+
+    for line in lines:
+        # determine current line depth by counting whitespace pairs
+        depth_line = int((len(line) - len(line.lstrip(" "))) / 2)
+        line = line.lstrip(" ")
+
+        # skip nodes that are deeper as our currently matched path
+        if depth < depth_line:
+            continue
+
+        # unwind the current query path until reaching previous match depth
+        while depth > depth_line:
+            queries.appendleft(path.pop())
+            depth -= 1
+        matcher = path[-1].split("|")
+
+        # check if current field matches the query expression
+        field = line.split(sep=":", maxsplit=1)[0]
+        if field not in matcher and "*" not in matcher:
+            continue
+
+        # next depth is one level deeper as the current line
+        depth = depth_line + 1
+
+        # check if matcher is not the leaf of the query expression
+        if queries:
+            path.append(queries.popleft())
+            continue
+
+        # return final match
+        return line.split(sep=": ", maxsplit=1)[1] if ": " in line else line
+
+    raise Exception(f"Packet '{packet}' did not match the query '{query}'")
 
 
 def packet_signature_creation_time(packet: Path) -> datetime:
@@ -212,7 +261,7 @@ def packet_signature_creation_time(packet: Path) -> datetime:
     -------
     The signature creation time as datetime
     """
-    field = packet_dump_field(packet, "Signature creation time")
+    field = packet_dump_field(packet, "Hashed area.Signature creation time")
     field = " ".join(field.split(" ", 3)[0:3])
     return datetime.strptime(field, "%Y-%m-%d %H:%M:%S %Z")
 
