@@ -46,7 +46,7 @@ build_install:
   stage: test
   needs: []
   before_script:
-    - pacman -Syu --needed --noconfirm make python sequoia-sq
+    - pacman -Syu --needed --noconfirm make pkgconf python sequoia-sq systemd
   script:
     - make
     - make install PREFIX=/usr
