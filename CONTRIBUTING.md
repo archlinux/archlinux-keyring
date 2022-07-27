@@ -21,9 +21,6 @@ mailing list](https://lists.archlinux.org/listinfo/arch-projects) and in
 [#archlinux-projects](ircs://irc.libera.chat/archlinux-projects) on [Libera
 Chat](https://libera.chat/).
 
-All past and present authors of archlinux-keyring are listed in
-[AUTHORS](AUTHORS.md).
-
 ## Requirements
 
 The following additional packages need to be installed to be able to lint
