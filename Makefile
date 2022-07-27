@@ -36,7 +36,7 @@ clean:
 	rm -rf build
 
 install: build
-	install -vDm 755 $(KEYRING_FILES) -t $(KEYRING_TARGET_DIR)
+	install -vDm 644 $(KEYRING_FILES) -t $(KEYRING_TARGET_DIR)
 	install -vDm 755 $(SCRIPT_FILES) -t $(SCRIPT_TARGET_DIR)
 	install -vDm 644 $(SYSTEMD_FILES) -t $(SYSTEMD_SYSTEM_UNIT_DIR)
 	install -vdm 755 $(SYSTEMD_TIMER_DIR)
