@@ -61,3 +61,9 @@ To run keyring integrity and consistency checks
 ```bash
 make check
 ```
+
+## Web Key Directory
+
+Only tagged releases are built and exposed via WKD. This helps to ensure, that
+inconsistent state of the keyring is not exposed to the enduser, which may make
+use of it instantaneously.
