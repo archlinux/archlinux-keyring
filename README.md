@@ -18,6 +18,8 @@ Build:
 
 * make
 * findutils
+* pkgconf
+* systemd
 
 Runtime:
 
