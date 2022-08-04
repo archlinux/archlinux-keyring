@@ -2,12 +2,12 @@
 After=network-online.target nss-lookup.target
 ConditionPathIsDirectory=/etc/pacman.d/gnupg/
 ConditionPathIsReadWrite=/etc/pacman.d/gnupg/
-ConditionFileIsExecutable=/usr/bin/archlinux-keyring-wkd-sync
+ConditionFileIsExecutable=SCRIPT_TARGET_DIR/archlinux-keyring-wkd-sync
 Description=Refresh existing keys of archlinux-keyring
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/archlinux-keyring-wkd-sync
+ExecStart=SCRIPT_TARGET_DIR/archlinux-keyring-wkd-sync
 
 CapabilityBoundingSet=
 DeviceAllow=
