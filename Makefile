@@ -1,3 +1,4 @@
+BUILDDIR ?= build
 PREFIX ?= /usr/local
 KEYRING_TARGET_DIR ?= $(PREFIX)/share/pacman/keyrings/
 SCRIPT_TARGET_DIR ?= $(PREFIX)/bin/
@@ -11,6 +12,10 @@ WKD_SYNC_SERVICE=archlinux-keyring-wkd-sync.service
 WKD_SYNC_TIMER=archlinux-keyring-wkd-sync.timer
 SYSTEMD_TIMER_DIR=$(SYSTEMD_SYSTEM_UNIT_DIR)/timers.target.wants/
 SOURCES := $(shell find keyring) $(shell find libkeyringctl -name '*.py' -or -type d) keyringctl
+
+WKD_FQDN:=archlinux.org
+WKD_WEB_ROOT=wkd/public
+
 
 all: build
 
@@ -33,18 +38,24 @@ test:
 	coverage report --fail-under=100.0
 
 build: $(SOURCES)
-	./keyringctl -v build
+	./keyringctl -v $(BUILDDIR)
 
 wkd_sync_service: wkd_sync/$(WKD_SYNC_SERVICE_IN)
-	sed -e 's|SCRIPT_TARGET_DIR|$(SCRIPT_TARGET_DIR)|' wkd_sync/$(WKD_SYNC_SERVICE_IN) > build/$(WKD_SYNC_SERVICE)
+	sed -e 's|SCRIPT_TARGET_DIR|$(SCRIPT_TARGET_DIR)|' wkd_sync/$(WKD_SYNC_SERVICE_IN) > $(BUILDDIR)/$(WKD_SYNC_SERVICE)
+
+wkd: build
+	sq --force wkd generate --skip "${BUILDDIR}/${WKD_WEB_ROOT}" "${WKD_FQDN}" $(BUILDDIR)/archlinux.gpg
+
+wkd-inspect: wkd
+	for file in "${BUILDDIR}/${WKD_WEB_ROOT}"/.well-known/openpgpkey/${WKD_FQDN}/hu/*; do sq inspect $$file; done
 
 clean:
-	rm -rf build
+	rm -rf $(BUILDDIR)
 
 install: build wkd_sync_service
-	install -vDm 644 build/{$(KEYRING_FILE),$(KEYRING_REVOKED_FILE),$(KEYRING_TRUSTED_FILE)} -t $(DESTDIR)$(KEYRING_TARGET_DIR)
+	install -vDm 644 $(BUILDDIR)/{$(KEYRING_FILE),$(KEYRING_REVOKED_FILE),$(KEYRING_TRUSTED_FILE)} -t $(DESTDIR)$(KEYRING_TARGET_DIR)
 	install -vDm 755 wkd_sync/$(WKD_SYNC_SCRIPT) -t $(DESTDIR)$(SCRIPT_TARGET_DIR)
-	install -vDm 644 build/$(WKD_SYNC_SERVICE) -t $(DESTDIR)$(SYSTEMD_SYSTEM_UNIT_DIR)
+	install -vDm 644 $(BUILDDIR)/$(WKD_SYNC_SERVICE) -t $(DESTDIR)$(SYSTEMD_SYSTEM_UNIT_DIR)
 	install -vDm 644 wkd_sync/$(WKD_SYNC_TIMER) -t $(DESTDIR)$(SYSTEMD_SYSTEM_UNIT_DIR)
 	install -vdm 755 $(DESTDIR)$(SYSTEMD_TIMER_DIR)
 	ln -sv ../$(WKD_SYNC_TIMER) $(DESTDIR)$(SYSTEMD_TIMER_DIR)/$(WKD_SYNC_TIMER)
