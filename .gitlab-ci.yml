@@ -85,8 +85,7 @@ wkd_build:
     - make wkd WKD_FQDN=master-key.archlinux.org
     - make wkd_inspect
     - make wkd_inspect WKD_FQDN=master-key.archlinux.org
-    - mkdir public
-    - cp -r build/wkd/.* public
+    - cp -r build/wkd/ public
   artifacts:
     paths:
       - public
