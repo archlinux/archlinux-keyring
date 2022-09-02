@@ -73,7 +73,7 @@ keyring_check:
       - .gitlab-ci.yml
       - Makefile
 
-wkd_build:
+pages:
   stage: wkd
   needs: []
   tags:
