@@ -1,3 +1,4 @@
+SHELL = /bin/bash
 PREFIX ?= /usr/local
 BUILD_DIR ?= build
 KEYRING_TARGET_DIR ?= $(PREFIX)/share/pacman/keyrings/
