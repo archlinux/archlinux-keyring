@@ -4,7 +4,7 @@ Description=Refresh existing PGP keys of archlinux-keyring regularly
 [Timer]
 OnCalendar=weekly
 Persistent=true
-RandomizedDelaySec=12h
+RandomizedDelaySec=1week
 
 [Install]
 WantedBy=timers.target
