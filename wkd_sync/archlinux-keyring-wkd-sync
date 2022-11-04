@@ -37,6 +37,7 @@ gpg_locate_external=(
 fingerprint_mboxes="$(
     gpg --homedir "$homedir" --no-permission-warning --list-keys --list-options show-only-fpr-mbox
 )"
+error=0
 
 # a list of <fingerprints> of all revoked keys and keys that have no valid main
 # key signatures
@@ -55,9 +56,11 @@ for domain_match in "$main_key_domain_match" "$packager_domain_match"; do
     while read -ra fpr_email; do
         if [[ ${fpr_email[1]} =~ $domain_match && ! "$old_fingerprints" =~ ${fpr_email[0]} ]]; then
             printf "Refreshing key %s with UID %s...\n" "${fpr_email[0]}" "${fpr_email[1]}"
-            "${gpg_locate_external[@]}" "${fpr_email[1]}"
+            "${gpg_locate_external[@]}" "${fpr_email[1]}" || let ++error
         else
             printf "Skipping key %s with UID %s...\n" "${fpr_email[0]}" "${fpr_email[1]}"
         fi
     done <<< "$fingerprint_mboxes"
 done
+
+exit ${error}
