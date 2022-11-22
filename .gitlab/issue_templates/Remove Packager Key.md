@@ -38,6 +38,7 @@ merge request to this repository using `keyringctl`.
 
 - [ ] @anthraxx
 - [ ] @bluewind
+- [ ] @demize
 - [ ] @diabonas
 - [ ] @dvzrv
 - [ ] @pierre

@@ -66,6 +66,7 @@ the details section.
 - [ ] The public key has been signed by all main key holders
   - [ ] @anthraxx
   - [ ] @bluewind
+  - [ ] @demize
   - [ ] @diabonas
   - [ ] @dvzrv
   - [ ] @pierre
