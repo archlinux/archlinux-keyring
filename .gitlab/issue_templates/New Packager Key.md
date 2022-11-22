@@ -8,7 +8,7 @@ NOTE: All comment sections with a MODIFY note need to be edited. All checkboxes
 in the "Checks" section labeled as "Owner of new key" need to be checked by the
 owner of the new key or by a sponsor of a new packager.
 -->
-/assign @anthraxx @bluewind @diabonas @dvzrv @grazzolini @pierre
+/assign @archlinux/teams/main-key-holders
 /label ~"new packager key"
 /title New packager key of <!-- MODIFY: Add new packager key holder's username -->
 <!--

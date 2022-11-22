@@ -7,7 +7,7 @@ NOTE: All comment sections with a MODIFY note need to be edited. All checkboxes
 in the "Checks" section labeled as "Owner of new key" need to be checked by the
 owner of the new key.
 -->
-/assign @anthraxx @bluewind @diabonas @dvzrv @grazzolini @pierre
+/assign @archlinux/teams/main-key-holders
 /label ~"new main key"
 /title New main key of <!-- MODIFY: Add new main key holder's username -->
 <!--
