@@ -40,5 +40,4 @@ merge request to this repository using `keyringctl`.
 - [ ] @bluewind
 - [ ] @diabonas
 - [ ] @dvzrv
-- [ ] @grazzolini
 - [ ] @pierre

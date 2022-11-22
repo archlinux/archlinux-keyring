@@ -68,7 +68,6 @@ the details section.
   - [ ] @bluewind
   - [ ] @diabonas
   - [ ] @dvzrv
-  - [ ] @grazzolini
   - [ ] @pierre
 
 ### Developers of the archlinux-keyring project
