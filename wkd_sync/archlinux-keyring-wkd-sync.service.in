@@ -5,9 +5,13 @@ ConditionPathIsReadWrite=/etc/pacman.d/gnupg/
 ConditionFileIsExecutable=SCRIPT_TARGET_DIR/archlinux-keyring-wkd-sync
 Description=Refresh existing keys of archlinux-keyring
 Wants=network-online.target
+StartLimitIntervalSec=1hour
+StartLimitBurst=3
 
 [Service]
 ExecStart=SCRIPT_TARGET_DIR/archlinux-keyring-wkd-sync
+Restart=on-failure
+RestartSec=5minutes
 
 CapabilityBoundingSet=
 DeviceAllow=
