@@ -41,4 +41,3 @@ merge request to this repository using `keyringctl`.
 - [ ] @demize
 - [ ] @diabonas
 - [ ] @dvzrv
-- [ ] @pierre

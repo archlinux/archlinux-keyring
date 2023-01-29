@@ -5,7 +5,7 @@ It is either used by the sponsor of a new packager or by an existing packager
 when adding a new key for themself after all steps in an accompanying issue
 (opened with the template "New Packager Key") have been fulfilled..
 -->
-/assign_reviewer @allan @anthraxx @bluewind @diabonas @dvzrv @pierre
+/assign_reviewer @archlinux/teams/main-key-holders
 /label ~"new packager key"
 /title Add packager key of <!-- MODIFY: Add the packager key holder's username -->
 <!--

@@ -5,7 +5,7 @@ It is used by users with a valid packager key after all steps in an
 accompanying issue (opened with the template "New Main Key") have been
 fulfilled.
 -->
-/assign_reviewer @allan @anthraxx @bluewind @diabonas @dvzrv @pierre
+/assign @archlinux/teams/main-key-holders
 /label ~"new main key"
 /title Add main key of <!-- MODIFY: Add the main key holder's username -->
 <!--

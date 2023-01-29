@@ -69,7 +69,6 @@ the details section.
   - [ ] @demize
   - [ ] @diabonas
   - [ ] @dvzrv
-  - [ ] @pierre
 
 ### Developers of the archlinux-keyring project
 - [ ] The data in the [Details](#details) section is correct and signed with a

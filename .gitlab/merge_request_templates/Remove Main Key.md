@@ -4,7 +4,7 @@ from the distribution's keyring.
 It is used by users with a valid main key after all steps in an accompanying
 issue (opened with the template "Remove Main Key") have been fulfilled.
 -->
-/assign_reviewer @allan @anthraxx @bluewind @diabonas @dvzrv @pierre
+/assign_reviewer @archlinux/teams/main-key-holders
 /label ~"remove main key"
 /title Remove main key of <!-- MODIFY: Add the main key holder's username -->
 <!--

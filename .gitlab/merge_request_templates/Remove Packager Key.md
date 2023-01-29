@@ -5,7 +5,7 @@ It is used by users with a valid main key or a valid packager key after all
 steps in an accompanying issue (opened with the template "Remove Packager Key")
 have been fulfilled.
 -->
-/assign_reviewer @allan @anthraxx @bluewind @diabonas @dvzrv @pierre
+/assign_reviewer @archlinux/teams/main-key-holders
 /label ~"remove packager key"
 /title Remove packager key of <!-- MODIFY: Add the packager's username -->
 <!--
