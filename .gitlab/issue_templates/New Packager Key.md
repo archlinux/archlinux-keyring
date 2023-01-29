@@ -58,7 +58,11 @@ the details section.
   practices](https://gitlab.archlinux.org/archlinux/archlinux-keyring/-/wikis/best-practices#validating-a-key-pair)
 - [ ] The data in the [Details](#details) section is attached to this issue as
   a clearsigned document
-- [ ] The public key has been uploaded to the pgp.mit.edu and keyserver.ubuntu.com
+- [ ] The public key has been uploaded to the `keyserver.ubuntu.com` and
+  `keys.openpgp.org` keyservers, and the `archlinux.org` UID has been verified
+  on the `keys.openpgp.org` keyserver.  Optionally the key can also be uploaded
+  to the `pgp.mit.edu` keyserver, but this is no longer mandatory as it's
+  frequently flaky.
 - [ ] A merge request to add the new public key has been created
 
 ### Main key holders

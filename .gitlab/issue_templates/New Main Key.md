@@ -51,7 +51,11 @@ merge request to add the new main key can be merged.
   a clearsigned document
 - [ ] The revocation certificate has been sent in an encrypted message to the
   revocation certificate holder
-- [ ] The public key has been uploaded to the pgp.mit.edu and keyserver.ubuntu.com
+- [ ] The public key has been uploaded to the `keyserver.ubuntu.com` and
+  `keys.openpgp.org` keyservers, and the `archlinux.org` UID has been verified
+  on the `keys.openpgp.org` keyserver.  Optionally the key can also be uploaded
+  to the `pgp.mit.edu` keyserver, but this is no longer mandatory as it's
+  frequently flaky.
 - [ ] A merge request to add the new public key has been created
 
 ### Revocation Certificate Holder
