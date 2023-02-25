@@ -167,7 +167,6 @@ def create_key_revocation(
     def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
         @wraps(decorated_func)
         def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
-
             revocation = test_key_revocation[username][0]
 
             keyring_root: Path = working_dir / "keyring"
@@ -199,7 +198,6 @@ def create_signature_revocation(
     def decorator(decorated_func: Callable[..., None]) -> Callable[..., Any]:
         @wraps(decorated_func)
         def wrapper(working_dir: Path, *args: Any, **kwargs: Any) -> None:
-
             issuer_key: Path = test_keys[issuer][0]
             keyring_root: Path = working_dir / "keyring"
 

@@ -640,7 +640,6 @@ def test_get_packets_from_path(working_dir: Path, keyring_dir: Path, path_exists
 @mark.parametrize("path_exists", [(True), (False)])
 @patch("libkeyringctl.keyring.get_packets_from_path")
 def test_get_packets_from_listing(get_packets_from_path_mock: Mock, working_dir: Path, path_exists: bool) -> None:
-
     path = working_dir / "path"
     if not path_exists:
         assert keyring.get_packets_from_listing(path=path) == []
@@ -704,7 +703,6 @@ def test_derive_username_from_fingerprint(
     keyring_dir: Path,
     valid_fingerprint: str,
 ) -> None:
-
     username = "username"
     other_username = "other_user"
 
@@ -791,7 +789,6 @@ def test_inspect_keyring(working_dir: Path, keyring_dir: Path) -> None:
 
 
 def test_get_fingerprints_from_paths(keyring_dir: Path, valid_fingerprint: str, valid_subkey_fingerprint: str) -> None:
-
     fingerprint_dir = keyring_dir / "type" / "username" / valid_fingerprint
     fingerprint_dir.mkdir(parents=True)
     (fingerprint_dir / (fingerprint_dir.name + ".asc")).touch()
