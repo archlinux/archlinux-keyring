@@ -16,9 +16,14 @@ set -eu
 readonly main_key_domain_match="@master-key.archlinux.org$"
 readonly packager_domain_match="@archlinux.org$"
 readonly homedir="$(pacman-conf GPGDir)"
+# fingerprints of keys with SHA-1 self-signatures (no longer used)
+readonly invalid_fingerprints=(
+    0F334D8698881578F65D2AE55ED514A45BD5C938  # djgera@archlinux.org
+    F4DDD6DDCEC320B665F502AAE8F18BA1615137BC  # ibiru@archlinux.org
+    EA84EA00866F51FB10CD19AE426991CD8406FFF3  # ronald@archlinux.org
+)
 
 domain_match=""
-uid=""
 gpg_locate_external=(
     # force update a key using WKD
     gpg
@@ -54,7 +59,7 @@ fi
 # first update the main signing keys, then the packager keys
 for domain_match in "$main_key_domain_match" "$packager_domain_match"; do
     while read -ra fpr_email; do
-        if [[ ${fpr_email[1]} =~ $domain_match && ! "$old_fingerprints" =~ ${fpr_email[0]} ]]; then
+        if [[ ${fpr_email[1]} =~ $domain_match && ! "$old_fingerprints" =~ ${fpr_email[0]} && ! "${invalid_fingerprints[*]}" =~ ${fpr_email[0]} ]]; then
             printf "Refreshing key %s with UID %s...\n" "${fpr_email[0]}" "${fpr_email[1]}"
             "${gpg_locate_external[@]}" "${fpr_email[1]}" || let ++error
         else
